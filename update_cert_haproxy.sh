@@ -31,7 +31,7 @@ PREFERRED_CHALLENGE="http"
 
 TOP=$(echo "$TLSNAME" | awk -F. '{print $1}')
 if [[ "$TOP" == '*' ]]; then
-  PREFERRED_CHALLENGE="dns" 
+  PREFERRED_CHALLENGE="dns"
   #TODO: lookup NS record and set DNS provider apropriately
   DNS_PROVIDER="dreamhost"
   WILDCARD=1
