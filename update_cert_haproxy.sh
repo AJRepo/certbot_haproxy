@@ -90,6 +90,7 @@ else
   cat "/etc/letsencrypt/live/$TLSNAME/fullchain.pem" "/etc/letsencrypt/live/$TLSNAME/privkey.pem" > "/etc/ssl/$TLSNAME/wildcard.$TLSNAME.pem"
 fi
 
+#shellcheck disable=SC2181
 if [[ $? != 0 ]]; then
   echo "unable to copy pem files to $TLSNAME dir"
   exit 1
