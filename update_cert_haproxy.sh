@@ -75,7 +75,7 @@ fi
 #TODO: Move the following into cert deploy hook script?
 
 #Make a backup
-mkdir "/etc/ssl/$TLSNAME/backup.$DATETIME"
+mkdir -p "/etc/ssl/$TLSNAME/backup.$DATETIME"
 cp /etc/ssl/"$TLSNAME"/*.pem /etc/ssl/"$TLSNAME"/backup."$DATETIME"/
 
 # Concatenate new cert files, with less output (avoiding the use tee and its output to stdout)
