@@ -6,6 +6,11 @@
 
 #Success -> /etc/letsencrypt/renewal-hooks/deploy/50_haproxy.sh
 
+#Permissions Required: 
+# * write permissions to /etc/ssl/$TLSNAME
+# * certbot (write permissions to /etc/letsencrypt/live)
+# * restart haproxy service
+
 TLSNAME=""
 #REPLACE WITH YOUR EMAIL
 EMAIL="certbot@example.com"
@@ -83,6 +88,11 @@ if [[ $WILDCARD == 0 ]]; then
   cat "/etc/letsencrypt/live/$TLSNAME/fullchain.pem" "/etc/letsencrypt/live/$TLSNAME/privkey.pem" > "/etc/ssl/$TLSNAME/$TLSNAME.pem"
 else
   cat "/etc/letsencrypt/live/$TLSNAME/fullchain.pem" "/etc/letsencrypt/live/$TLSNAME/privkey.pem" > "/etc/ssl/$TLSNAME/wildcard.$TLSNAME.pem"
+fi
+
+if [[ $? != 0 ]]; then
+  echo "unable to copy pem files to $TLSNAME dir"
+  exit 1
 fi
 
 # Reload  HAProxy
