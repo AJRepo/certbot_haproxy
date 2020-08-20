@@ -35,7 +35,7 @@ MAIL="/usr/sbin/sendmail"
 THIS_SCRIPT=${0}
 #X3_FILE=$Z_BASE_DIR/ssl/letsencrypt/lets-encrypt-x3-cross-signed.pem.txt
 
-MESSAGE_FILE="/tmp/message.txt"
+MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 
 ########Notify about DEPLOY HOOK being called
 echo "Subject: Letsencrypt Renewal on $FQDN
