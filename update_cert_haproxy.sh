@@ -77,13 +77,14 @@ if echo "$CERTBOT_REPLY" | grep "no action"; then
   exit 0;
 fi
 
-#TODO: Move the following into cert deploy hook script?
+#TODO: Move the following into 50_haproxy_deploy.sh
 
 #Make a backup
 mkdir -p "/etc/ssl/$TLSNAME/backup.$DATETIME"
 cp /etc/ssl/"$TLSNAME"/*.pem /etc/ssl/"$TLSNAME"/backup."$DATETIME"/
 
-# Concatenate new cert files, with less output (avoiding the use tee and its output to stdout)
+# Concatenate new cert files
+# TODO: move to tee to allow for being called from sudo
 if [[ $WILDCARD == 0 ]]; then
   cat "/etc/letsencrypt/live/$TLSNAME/fullchain.pem" "/etc/letsencrypt/live/$TLSNAME/privkey.pem" > "/etc/ssl/$TLSNAME/$TLSNAME.pem"
 else
