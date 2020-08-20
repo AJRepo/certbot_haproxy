@@ -12,8 +12,10 @@
 # * restart haproxy service
 
 TLSNAME=""
+HOST_DOMAIN=$(hostname -d | sed -e /\ /s///g)
 #REPLACE WITH YOUR EMAIL
-EMAIL="certbot@example.com"
+#EMAIL_TO="certbot@example.com"
+EMAIL_TO="certbot@$HOST_DOMAIN"
 WILDCARD=0
 DATETIME=$(date +%Y%m%d_%H%M%S)
 
@@ -51,11 +53,11 @@ fi
 # is not appropriate to run daily because each certificate will be renewed every day,
 # which will quickly run into the certificate authority rate limit.)
 
-#certbot -q certonly --standalone -d $TLSNAME --non-interactive --agree-tos --email $EMAIL --http-01-port=8888  --preferred-challenges=$PREFERRED_CHALLENGE --force-renewal
+#certbot -q certonly --standalone -d $TLSNAME --non-interactive --agree-tos --email $EMAIL_TO --http-01-port=8888  --preferred-challenges=$PREFERRED_CHALLENGE --force-renewal
 
 if [[ $PREFERRED_CHALLENGE == "dns" ]]; then
   if ! CERTBOT_REPLY=$(certbot certonly -d "$TLSNAME" --agree-tos --manual \
-      --email $EMAIL \
+      --email $EMAIL_TO \
       --preferred-challenges $PREFERRED_CHALLENGE \
       --manual-auth-hook /etc/letsencrypt/manual-hooks/${DNS_PROVIDER}_certbot_auth_hook.sh \
       --manual-cleanup-hook /etc/letsencrypt/manual-hooks/${DNS_PROVIDER}_certbot_cleanup_hook.sh \
@@ -64,7 +66,7 @@ if [[ $PREFERRED_CHALLENGE == "dns" ]]; then
     exit 1;
   fi
 else
-  if ! CERTBOT_REPLY=$(certbot certonly --standalone -d "$TLSNAME" --non-interactive --agree-tos --email $EMAIL --http-01-port=8888  --preferred-challenges=$PREFERRED_CHALLENGE) ; then
+  if ! CERTBOT_REPLY=$(certbot certonly --standalone -d "$TLSNAME" --non-interactive --agree-tos --email $EMAIL_TO --http-01-port=8888  --preferred-challenges=$PREFERRED_CHALLENGE) ; then
     echo "ERROR: http standalone renewal failed";
     exit 1;
   fi
