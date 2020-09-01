@@ -6,7 +6,7 @@
 
 #Success -> /etc/letsencrypt/renewal-hooks/deploy/50_haproxy.sh
 
-#Permissions Required: 
+#Permissions Required:
 # * write permissions to /etc/ssl/$TLSNAME
 # * certbot (write permissions to /etc/letsencrypt/live)
 # * restart haproxy service
@@ -49,7 +49,7 @@ fi
 
 # If you are manually renewing all of your certificates, the --force-renewal flag may be helpful;
 # it causes the expiration time of the certificate(s) to be ignored when considering renewal,
-# and attempts to renew each and every installed certificate regardless of its age. (This form 
+# and attempts to renew each and every installed certificate regardless of its age. (This form
 # is not appropriate to run daily because each certificate will be renewed every day,
 # which will quickly run into the certificate authority rate limit.)
 
@@ -57,7 +57,7 @@ fi
 
 if [[ $PREFERRED_CHALLENGE == "dns" ]]; then
   if ! CERTBOT_REPLY=$(certbot certonly -d "$TLSNAME" --agree-tos --manual \
-      --email $EMAIL_TO \
+      --email "$EMAIL_TO" \
       --preferred-challenges $PREFERRED_CHALLENGE \
       --manual-auth-hook /etc/letsencrypt/manual-hooks/${DNS_PROVIDER}_certbot_auth_hook.sh \
       --manual-cleanup-hook /etc/letsencrypt/manual-hooks/${DNS_PROVIDER}_certbot_cleanup_hook.sh \
@@ -66,7 +66,7 @@ if [[ $PREFERRED_CHALLENGE == "dns" ]]; then
     exit 1;
   fi
 else
-  if ! CERTBOT_REPLY=$(certbot certonly --standalone -d "$TLSNAME" --non-interactive --agree-tos --email $EMAIL_TO --http-01-port=8888  --preferred-challenges=$PREFERRED_CHALLENGE) ; then
+  if ! CERTBOT_REPLY=$(certbot certonly --standalone -d "$TLSNAME" --non-interactive --agree-tos --email "$EMAIL_TO" --http-01-port=8888  --preferred-challenges=$PREFERRED_CHALLENGE) ; then
     echo "ERROR: http standalone renewal failed";
     exit 1;
   fi
@@ -82,10 +82,20 @@ fi
 #TODO: Move the following into 50_haproxy_deploy.sh
 
 #Make a backup
-mkdir -p "/etc/ssl/$TLSNAME/backup.$DATETIME"
-cp /etc/ssl/"$TLSNAME"/*.pem /etc/ssl/"$TLSNAME"/backup."$DATETIME"/
+if mkdir -p "/etc/ssl/$TLSNAME/backup.$DATETIME"; then
+  cp /etc/ssl/"$TLSNAME"/*.pem /etc/ssl/"$TLSNAME"/backup."$DATETIME"/
+fi
 
 # Concatenate new cert files
+# NOTE: If you TLS certs for a wildcard AND a base DNS domain with the same base name
+# e.g. *.EXAMPLE.ORG and EXAMPLE.ORG
+# then certbot will create the directories
+# /etc/letsencrypt/live/EXAMPLE.ORG
+# and
+# /etc/letsencrypt/live/EXAMPLE.ORG-0001
+# which means assuming the path = /etc/letsencrypt/live/$TLSNAME won't work
+# and all of this needs to be moved into a deploy hook that has the pathname.
+#
 # TODO: move to tee to allow for being called from sudo
 if [[ $WILDCARD == 0 ]]; then
   cat "/etc/letsencrypt/live/$TLSNAME/fullchain.pem" "/etc/letsencrypt/live/$TLSNAME/privkey.pem" > "/etc/ssl/$TLSNAME/$TLSNAME.pem"
@@ -100,7 +110,7 @@ if [[ $? != 0 ]]; then
 fi
 
 # Reload  HAProxy
-if haproxy -c -f /etc/haproxy/haproxy.cfg; then 
+if haproxy -c -f /etc/haproxy/haproxy.cfg; then
   service haproxy reload
 else
   echo "ERROR: check of haproxy config failed. Not restarting.";
