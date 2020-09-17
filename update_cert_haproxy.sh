@@ -56,14 +56,33 @@ if ! systemctl --no-ask-password reload haproxy.service; then
   exit 1
 fi
 
+TOP=$(echo "$TLSNAME" | awk -F. '{print $1}')
+if [[ "$TOP" == '*' ]]; then
+  WILDCARD=1
+  PEM_FILE="$HAPROXY_CRT_DIR/$TLSNAME/$TLSNAME.pem"
+else
+  WILDCARD=0
+  PEM_FILE="$HAPROXY_CRT_DIR/$TLSNAME/$TLSNAME.pem"
+fi
+
 if [ -d $HAPROXY_CRT_DIR/"$TLSNAME" ]; then
-  HAPROXY_CRT_DIR_EXISTS=TRUE
+  HAPROXY_CRT_DIR_EXISTS=true
   if [ ! -w  $HAPROXY_CRT_DIR/"$TLSNAME" ]; then
     echo "This script must be run as a user with rights to write to haproxy certificate dir: $HAPROXY_CRT_DIR/$TLSNAME" 1>&2
     exit 1
   fi
+  if [ ! -f "$PEM_FILE" ]; then
+    HAPROXY_CRT_FILE_EXISTS=false
+  else
+    HAPROXY_CRT_FILE_EXISTS=true
+    if [ ! -w "$PEM_FILE" ]; then
+      echo "This script must be run as a user with rights to overwrite: $PEM_FILE" 1>&2
+      exit 1
+    fi
+  fi
 else
-  HAPROXY_CRT_DIR_EXISTS=FALSE
+  HAPROXY_CRT_DIR_EXISTS=false
+  HAPROXY_CRT_FILE_EXISTS=false
   if [ ! -w  $HAPROXY_CRT_DIR ]; then
     echo "This script must be run as a user with rights to write to haproxy certificate dir: $HAPROXY_CRT_DIR" 1>&2
     exit 1
@@ -72,14 +91,12 @@ fi
 ##################################
 
 
-PREFERRED_CHALLENGE="http"
-
-TOP=$(echo "$TLSNAME" | awk -F. '{print $1}')
-if [[ "$TOP" == '*' ]]; then
+if [[ $WILDCARD == 1 ]]; then
   PREFERRED_CHALLENGE="dns"
   #TODO: lookup NS record and set DNS provider apropriately
   DNS_PROVIDER="dreamhost"
-  WILDCARD=1
+else
+  PREFERRED_CHALLENGE="http"
 fi
 
 
@@ -121,14 +138,14 @@ fi
 if echo "$CERTBOT_REPLY" | grep "no action"; then
   echo "Certbot reports 'no action taken' - not due for renewal"
   echo "Certbot reports 'no action taken' - not due for renewal" >> "$MESSAGE_FILE"
-  if $HAPROXY_CRT_DIR_EXISTS; then
-    echo "HaProxy dir exists. no copying needed"
-    echo "HaProxy dir exists. no copying needed" >> "$MESSAGE_FILE"
+  if $HAPROXY_CRT_DIR_EXISTS && $HAPROXY_CRT_FILE_EXISTS; then
+    echo "HaProxy file exists. no copying needed"
+    echo "HaProxy file exists. no copying needed" >> "$MESSAGE_FILE"
     $MAIL -t "$EMAIL_TO" < "$MESSAGE_FILE"
     exit 0;
   else
-    echo "Certbot ahead of HaProxy. $HAPROXY_CRT_DIR/$TLSNAME dir to be created and crt files copied."
-    echo "Certbot ahead of HaProxy. $HAPROXY_CRT_DIR/$TLSNAME dir to be created and crt files copied." >> "$MESSAGE_FILE"
+    echo "HaProxy CRT file does not exist. $PEM_FILE to be created."
+    echo "HaProxy CRT file does not exist. $PEM_FILE to be created." >> "$MESSAGE_FILE"
   fi
 fi
 
@@ -161,9 +178,9 @@ KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F
 
 # TODO: move to tee to allow for being called from sudo
 if [[ $WILDCARD == 0 ]]; then
-  cat "$CRT_PATH" "$KEY_PATH" > "$HAPROXY_CRT_DIR/$TLSNAME/$TLSNAME.pem"
+  cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
 else
-  cat "$CRT_PATH" "$KEY_PATH" > "$HAPROXY_CRT_DIR/$TLSNAME/wildcard.$TLSNAME.pem"
+  cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
 fi
 
 #shellcheck disable=SC2181
