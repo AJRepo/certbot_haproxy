@@ -27,11 +27,11 @@
 
 #Warning: hostname -A adds a space to the end of returned value(s)
 FQDN=$(hostname -A | sed -e /\ /s///g)
-HOST_DOMAIN=$(hostname -d | sed -e /\ /s///g)
+HOST_DOMAIN=$(dnsdomainname | sed -e /\ /s///g)
 FROM="<HaProxy@$FQDN"
 #EMAIL_TO="postmaster@$HOST_DOMAIN"
 EMAIL_TO="certbot@$HOST_DOMAIN"
-MAIL="/usr/sbin/sendmail"
+MAIL="/usr/bin/mail"
 THIS_SCRIPT=${0}
 #X3_FILE=$Z_BASE_DIR/ssl/letsencrypt/lets-encrypt-x3-cross-signed.pem.txt
 DATETIME=$(date +%Y%m%d_%H%M%S)
