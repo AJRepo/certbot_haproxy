@@ -59,7 +59,7 @@ fi
 TOP=$(echo "$TLSNAME" | awk -F. '{print $1}')
 if [[ "$TOP" == '*' ]]; then
   WILDCARD=1
-  PEM_FILE="$HAPROXY_CRT_DIR/$TLSNAME/$TLSNAME.pem"
+  PEM_FILE="$HAPROXY_CRT_DIR/$TLSNAME/wildcard.$TLSNAME.pem"
 else
   WILDCARD=0
   PEM_FILE="$HAPROXY_CRT_DIR/$TLSNAME/$TLSNAME.pem"
