@@ -13,7 +13,7 @@
 
 TLSNAME=""
 FQDN=$(hostname -A | sed -e /\ /s///g)
-HOST_DOMAIN=$(hostname -d | sed -e /\ /s///g)
+HOST_DOMAIN=$(dnsdomainname | sed -e /\ /s///g)
 FROM="<HaProxy@$FQDN"
 #REPLACE WITH YOUR EMAIL
 #EMAIL_TO="certbot@example.com"
@@ -59,6 +59,11 @@ if ! systemctl --no-ask-password reload haproxy.service; then
   exit 1
 fi
 
+if [ "$(dnsdomainname)" == "" ]; then
+  echo "Error: dnsdomainname returns blank. Check /etc/hosts file for proper configuration"
+  exit 1
+fi
+
 TOP=$(echo "$TLSNAME" | awk -F. '{print $1}')
 if [[ "$TOP" == '*' ]]; then
   WILDCARD=1
@@ -69,7 +74,6 @@ else
 fi
 
 if [ -d $HAPROXY_CRT_DIR/"$TLSNAME" ]; then
-  HAPROXY_CRT_DIR_EXISTS=true
   if [ ! -w  $HAPROXY_CRT_DIR/"$TLSNAME" ]; then
     echo "This script must be run as a user with rights to write to haproxy certificate dir: $HAPROXY_CRT_DIR/$TLSNAME" 1>&2
     exit 1
@@ -84,11 +88,12 @@ if [ -d $HAPROXY_CRT_DIR/"$TLSNAME" ]; then
     fi
   fi
 else
-  HAPROXY_CRT_DIR_EXISTS=false
   HAPROXY_CRT_FILE_EXISTS=false
   if [ ! -w  $HAPROXY_CRT_DIR ]; then
     echo "This script must be run as a user with rights to write to haproxy certificate dir: $HAPROXY_CRT_DIR" 1>&2
     exit 1
+  else
+    mkdir -p "$HAPROXY_CRT_DIR/$TLSNAME"
   fi
 fi
 ##################################
@@ -141,9 +146,9 @@ fi
 if echo "$CERTBOT_REPLY" | grep "no action"; then
   echo "Certbot reports 'no action taken' - not due for renewal"
   echo "Certbot reports 'no action taken' - not due for renewal" >> "$MESSAGE_FILE"
-  if $HAPROXY_CRT_DIR_EXISTS && $HAPROXY_CRT_FILE_EXISTS; then
-    echo "HaProxy file exists. no copying needed"
-    echo "HaProxy file exists. no copying needed" >> "$MESSAGE_FILE"
+  if $HAPROXY_CRT_FILE_EXISTS; then
+    echo "No Cerbot renew and HaProxy file exists. no copying needed"
+    echo "No Cerbot renew and HaProxy file exists. no copying needed" >> "$MESSAGE_FILE"
     $MAIL -t "$EMAIL_TO" < "$MESSAGE_FILE"
     exit 0;
   else
