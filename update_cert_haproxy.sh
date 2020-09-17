@@ -36,9 +36,9 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-if [ "$1" == "" ]; then
+if [ "$1" == "" ] || [ "$1" == "--help" ]; then
    echo "Domain name argument is required:"
-   echo "Usage: update_cert fqdn"
+   echo "Usage: $0 SSL_certificate_name"
    exit
 else
    TLSNAME=$1
