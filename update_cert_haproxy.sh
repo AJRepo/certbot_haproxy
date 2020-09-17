@@ -12,11 +12,14 @@
 # * restart haproxy service
 
 TLSNAME=""
+FQDN=$(hostname -A | sed -e /\ /s///g)
 HOST_DOMAIN=$(hostname -d | sed -e /\ /s///g)
+FROM="<HaProxy@$FQDN"
 #REPLACE WITH YOUR EMAIL
 #EMAIL_TO="certbot@example.com"
 EMAIL_TO="certbot@$HOST_DOMAIN"
 HAPROXY_CRT_DIR="/etc/ssl"
+MAIL="/usr/bin/mail"
 WILDCARD=0
 DATETIME=$(date +%Y%m%d_%H%M%S)
 
@@ -152,7 +155,7 @@ fi
 #TODO: Move the following into 50_haproxy_deploy.sh
 
 #Make a backup
-if mkdir -p "$HAPROXY_CRT_DIR/$TLSNAME/backup.$DATETIME"; then
+if $HAPROXY_CRT_FILE_EXISTS && mkdir -p "$HAPROXY_CRT_DIR/$TLSNAME/backup.$DATETIME"; then
   cp $HAPROXY_CRT_DIR/"$TLSNAME"/*.pem $HAPROXY_CRT_DIR/"$TLSNAME"/backup."$DATETIME"/
 fi
 
@@ -175,6 +178,8 @@ fi
 #    Private Key Path: /etc/letsencrypt/live/example.net/privkey.pem
 CRT_PATH=$(certbot certificates -d "$TLSNAME" | grep "Certificate Path" | awk -F : '{print $2}' | sed -e /\ /s///)
 KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F : '{print $2}' | sed -e /\ /s///)
+
+#echo "DEBUG: $CRT_PATH, $KEY_PATH, $PEM_FILE"
 
 # TODO: move to tee to allow for being called from sudo
 if [[ $WILDCARD == 0 ]]; then
