@@ -14,7 +14,7 @@
 TLSNAME=""
 FQDN=$(hostname -A | sed -e /\ /s///g)
 HOST_DOMAIN=$(dnsdomainname | sed -e /\ /s///g)
-FROM="<HaProxy@$FQDN"
+FROM="HaProxy@$FQDN"
 #REPLACE WITH YOUR EMAIL
 #EMAIL_TO="certbot@example.com"
 EMAIL_TO="certbot@$HOST_DOMAIN"
@@ -28,6 +28,7 @@ MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 ########Notify about script being called ##############
 echo "Subject: Letsencrypt Renewal on $HOST_DOMAIN site
 From: <$FROM>
+To: <$EMAIL_TO>
 
 Renewal Script Called from Cron
 
