@@ -39,13 +39,20 @@ DATETIME=$(date +%Y%m%d_%H%M%S)
 HAPROXY_CRT_DIR="/etc/ssl"
 
 MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
-echo "Subject: Letsencrypt Renewal on $FQDN
+if [[ $THIS_LINEAGE_COMMANDLINE == "" ]]; then
+  TLSNAME=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
+else
+  #TLSNAME=$(certbot certificates -d "$THIS_LINEAGE_COMMANDLINE" | grep "Domains" | awk -F : '{print $2}' | sed -e /\ /s///)
+  TLSNAME="$THIS_LINEAGE_COMMANDLINE"
+fi
+
+echo "To: <$EMAIL_TO>
+Subject: Letsencrypt Renewal of $TLSNAME on $FQDN
 From: <$FROM>
-To: <$EMAIL_TO>
 
 The Letsencrypt Certificate(s) $RENEWED_DOMAINS has(have) been renewed and downloaded
 and is(are) about to be deployed at $FQDN
-The cert.pem file reports domain $TLSNAME
+TLSNAME=$TLSNAME
 
 Some variables:
 LINEAGE=$RENEWED_LINEAGE
@@ -59,19 +66,13 @@ Deploy Log:" > "$MESSAGE_FILE"
 echo "Starting ${0} deploy hook" >> "$MESSAGE_FILE"
 
 
-if [[ $THIS_LINEAGE_COMMANDLINE == "" ]]; then
-  TLSNAME=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
-else
-  #TLSNAME=$(certbot certificates -d "$THIS_LINEAGE_COMMANDLINE" | grep "Domains" | awk -F : '{print $2}' | sed -e /\ /s///)
-  TLSNAME="$THIS_LINEAGE_COMMANDLINE"
-fi
 
 echo "TLSNAME=$TLSNAME" >> "$MESSAGE_FILE"
 
 if [[ "$TLSNAME" == "" ]]; then
   echo "Error: TLSNAME is blank. Exiting."
   echo "Error: TLSNAME is blank. Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 
@@ -81,7 +82,7 @@ KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F
 if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
   echo "Error: CRT or KEY path is blank. Exiting."
   echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 
@@ -113,7 +114,7 @@ fi
 if [[ $TLSNAME == "" ]]; then
   echo "Error: Domain not found in letsencrypt/live/.... Exiting."
   echo "Error: Domain not found in letsencrypt/live/.... Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 #Make a backup
@@ -122,7 +123,7 @@ if mkdir -p "/$HAPROXY_CRT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
   cp "/$HAPROXY_CRT_DIR/$THIS_CLEAN_DOMAIN/*.pem" "/$HAPROXY_CRT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
 else
   echo "Not continuing because backup not made" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup" -t < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1;
 fi
 
@@ -137,7 +138,7 @@ fi
 if [[ $? != 0 ]]; then
   echo "unable to copy pem files to $TLSNAME dir"
   echo "unable to copy pem files to $TLSNAME dir" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 
@@ -148,10 +149,10 @@ if haproxy -c -f /etc/haproxy/haproxy.cfg; then
 else
   echo "ERROR: check of haproxy config failed. Not restarting."
   echo "ERROR: check of haproxy config failed. Not restarting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1;
 fi
 
 ########Notify about DEPLOY HOOK being called
-$MAIL -s "Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t < "$MESSAGE_FILE"
+$MAIL -s "Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
 #####################################

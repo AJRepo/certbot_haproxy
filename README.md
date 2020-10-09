@@ -18,3 +18,12 @@ or
 You'd have a line in haproxy.cfg like 
 
 `bind *:443 ssl crt /etc/ssl/example.com/example.pem`
+
+Note:
+Mail GNU Mailutils version>=3.4 (Ubuntu 18.04 and up) 
+is different than version 2.99.99 (Ubuntu 16.04 and up) in how
+it interprets the -t, --to flag.
+Version 3.4 states
+                read recipients from the message header (e.g. To: <foo@example.com> )
+Version 2.99.99 states
+              precede message by a list of addresses (e.g. foo@example.com )

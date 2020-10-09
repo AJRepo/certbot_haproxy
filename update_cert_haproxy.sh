@@ -112,7 +112,7 @@ KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F
 if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
   echo "Error: CRT or KEY path is blank. Exiting."
   echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 
@@ -150,14 +150,14 @@ if [[ $PREFERRED_CHALLENGE == "dns" ]]; then
       --manual-public-ip-logging-ok); then
     echo "ERROR: wildcard $PREFERRED_CHALLENGE at $DNS_PROVIDER renewal failed";
     echo "ERROR: wildcard $PREFERRED_CHALLENGE at $DNS_PROVIDER renewal failed" >> "$MESSAGE_FILE"
-    $MAIL -t < "$MESSAGE_FILE"
+    $MAIL -s "Error: certbot renew" -t "$EMAIL_TO" < "$MESSAGE_FILE"
     exit 1;
   fi
 else
   if ! CERTBOT_REPLY=$(certbot certonly --standalone -d "$TLSNAME" --non-interactive --agree-tos --email "$EMAIL_TO" --http-01-port=8888  --preferred-challenges=$PREFERRED_CHALLENGE) ; then
     echo "ERROR: http standalone renewal failed";
     echo "ERROR: http standalone renewal failed" >> "$MESSAGE_FILE"
-    $MAIL -t < "$MESSAGE_FILE"
+    $MAIL -s "Error: certbot renew" -t "$EMAIL_TO" < "$MESSAGE_FILE"
     exit 1;
   fi
 fi
@@ -170,7 +170,7 @@ if echo "$CERTBOT_REPLY" | grep "no action"; then
   if $HAPROXY_CRT_FILE_EXISTS; then
     echo "No Cerbot renew and HaProxy file exists. no copying needed"
     echo "No Cerbot renew and HaProxy file exists. no copying needed" >> "$MESSAGE_FILE"
-    $MAIL -t < "$MESSAGE_FILE"
+    $MAIL -s "Letsencrypt Renewal on $HOST_DOMAIN. no action " -t "$EMAIL_TO" < "$MESSAGE_FILE"
     exit 0;
   else
     echo "HaProxy CRT file does not exist. $PEM_FILE to be created."
@@ -182,4 +182,4 @@ fi
 echo "Now call '$DEPLOY_SCRIPT $TLSNAME' or put $DEPLOY_SCRIPT in renewal-hooks"
 echo "Renewed: Now call '$DEPLOY_SCRIPT $TLSNAME' or put $DEPLOY_SCRIPT in renewal-hooks" >> "$MESSAGE_FILE"
 
-$MAIL -t < "$MESSAGE_FILE"
+$MAIL -s "Letsencrypt Renewal on $HOST_DOMAIN. Success" -t "$EMAIL_TO" < "$MESSAGE_FILE"
