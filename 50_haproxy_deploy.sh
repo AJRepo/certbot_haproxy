@@ -4,11 +4,14 @@
 # does nothing except send an email notification. Future work is to
 # modify .pem files for HaProxy & restart if pre-checks are all ok.
 
-#Assumptions:
-#   HAPROXY pem files are stored in /etc/ssl/$TLSNAME/$TLSNAME.pem
+# Script creates PEM files and creates backups in 
+#   /etc/ssl/$TLSNAME/$TLSNAME.pem
+# If there's a directory $HAPROXY_CRT_DIR (e.g. /etc/haproxy/crts) then 
+#   the script creates a softline to the PEM file created. This takes 
+#   advantage of haproxy's ability to use a config dir for the crt directive.  
 #
-#Additionally certbot will pass relevant environment variables to some hooks
-#  not to all hooks: https://github.com/certbot/certbot/issues/6722
+# Note: certbot will pass environment variables to SOME hooks but
+#  not to ALL hooks: https://github.com/certbot/certbot/issues/6722
 #  Documentation states the following are sent to RENEW hooks
 #    CERTBOT_DOMAIN: The domain being authenticated
 #    CERTBOT_VALIDATION: The validation string
@@ -36,7 +39,8 @@ THIS_SCRIPT=${0}
 THIS_LINEAGE_COMMANDLINE=${1}
 #X3_FILE=$Z_BASE_DIR/ssl/letsencrypt/lets-encrypt-x3-cross-signed.pem.txt
 DATETIME=$(date +%Y%m%d_%H%M%S)
-HAPROXY_CRT_DIR="/etc/ssl"
+PEM_ROOT_DIR="/etc/ssl"
+HAPROXY_CRT_DIR="/etc/haproxy/crts/"
 
 MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 if [[ $THIS_LINEAGE_COMMANDLINE == "" ]]; then
@@ -94,10 +98,12 @@ echo "THIS_CLEAN_DOMAIN=$THIS_CLEAN_DOMAIN" >> "$MESSAGE_FILE"
 TOP=$(echo "$TLSNAME" | awk -F. '{print $1}')
 if [[ "$TOP" == '*' ]]; then
   WILDCARD=1
-  PEM_FILE="$HAPROXY_CRT_DIR/$THIS_CLEAN_DOMAIN/wildcard.$THIS_CLEAN_DOMAIN.pem"
+  PEM_FILENAME="wildcard.$THIS_CLEAN_DOMAIN.pem"
+  PEM_FILE="$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/wildcard.$THIS_CLEAN_DOMAIN.pem"
 else
   WILDCARD=0
-  PEM_FILE="$HAPROXY_CRT_DIR/$TLSNAME/$TLSNAME.pem"
+  PEM_FILENAME="$TLSNAME.pem"
+  PEM_FILE="$PEM_ROOT_DIR/$TLSNAME/$TLSNAME.pem"
 fi
 
 
@@ -118,9 +124,9 @@ if [[ $TLSNAME == "" ]]; then
   exit 1
 fi
 #Make a backup
-if mkdir -p "/$HAPROXY_CRT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
+if mkdir -p "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
  #shellcheck disable=SC2140
-  cp "/$HAPROXY_CRT_DIR/$THIS_CLEAN_DOMAIN/*.pem" "/$HAPROXY_CRT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
+  cp "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/*.pem" "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
 else
   echo "Not continuing because backup not made" >> "$MESSAGE_FILE"
   $MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup" -t "$EMAIL_TO" < "$MESSAGE_FILE"
@@ -132,6 +138,13 @@ if [[ $WILDCARD == 0 ]]; then
   cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
 else
   cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
+fi
+
+#if there's a directory of PEM files for HAproxy, then setup soft link if the file doesn't exist
+if [[ -d $HAPROXY_CRT_DIR ]]; then
+  if [[ ! -e "$HAPROXY_CRT_DIR/$PEM_FILENAME" ]]; then
+    ln -s "$PEM_FILE" "$HAPROXY_CRT_DIR/$PEM_FILENAME"
+  fi
 fi
 
 #shellcheck disable=SC2181
