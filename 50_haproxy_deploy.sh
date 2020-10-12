@@ -126,7 +126,7 @@ fi
 #Make a backup
 if mkdir -p "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
  #shellcheck disable=SC2140
-  cp "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/*.pem" "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
+  cp "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/"*.pem "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
 else
   echo "Not continuing because backup not made" >> "$MESSAGE_FILE"
   $MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup" -t "$EMAIL_TO" < "$MESSAGE_FILE"
