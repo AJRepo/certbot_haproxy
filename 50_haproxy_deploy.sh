@@ -1,14 +1,21 @@
 #!/bin/bash
 
-# Script to be called after a successful certbot renewal. Currently
-# does nothing except send an email notification. Future work is to
-# modify .pem files for HaProxy & restart if pre-checks are all ok.
+# Script is automatically called after a successful certbot renewal if 
+# put in /etc/letsencrypt/renewal-hooks/deploy
 
-# Script creates PEM files and creates backups in 
-#   /etc/ssl/$TLSNAME/$TLSNAME.pem
+# Script creates PEM files in 
+#   /etc/ssl/$TLSNAME/[wildcard.]$TLSNAME.pem
+# and creates backups in 
+#   /etc/ssl/$TLSNAME/backup.YYYYMMDD.HHMMSS/
+# where [wildcard.] is used to replace the '*' character 
+# if your certificate is a wildcard cert (e.g. *.example.com) 
+#
 # If there's a directory $HAPROXY_CRT_DIR (e.g. /etc/haproxy/crts) then 
-#   the script creates a softline to the PEM file created. This takes 
-#   advantage of haproxy's ability to use a config dir for the crt directive.  
+#   the script creates a softlink to the PEM file created as
+#   /etc/haproxy/crts/[wildcard.]$TLSNAME.pem -> /etc/ssl/$TLSNAME/[wildcard.]$TLSNAME.pem
+# (supporting wildcard domains as well).
+# This takes advantage of HA-Proxy's ability to use a config dir for the crt directive(s)
+# so that adding new certs can be done without re-editing the haproxy.cfg file.   
 #
 # Note: certbot will pass environment variables to SOME hooks but
 #  not to ALL hooks: https://github.com/certbot/certbot/issues/6722
