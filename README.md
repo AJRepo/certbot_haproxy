@@ -1,6 +1,6 @@
 # certbot_haproxy
 
-Scripts to handle certbot renewals automatically on haproxy with certbot hooks
+Scripts to handle certbot renewals automatically on haproxy with letsencrypt hooks
 
 Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS. 
   
@@ -18,11 +18,11 @@ and creates backups in
 ```
    /etc/ssl/$TLSNAME/backup.YYYYMMDD.HHMMSS/
 ```
-where [wildcard.] is used to replace the '\*' character if the script detects your certificate is a wildcard cert (e.g. \*.example.com) 
+where `wildcard.` is used to replace the '\*' character if the script detects your certificate is a wildcard cert (e.g. \*.example.com) 
 
 If you have more than one certificate, having the following in the haproxy.cfg file
 
-   `bind *:443 ssl crt /etc/haproxy/certs/`
+   `bind *:443 ssl crt /etc/haproxy/crts/`
 
 allows HA-Proxy to read all pem files in that directory at once. 
 
@@ -64,4 +64,4 @@ Version 2.99.99 states
 ```
    precede message by a list of addresses (e.g. foo@example.com )
 ```
-so mailing component is a bit more kludgy for backwards compatibility. 
+so the mailing component is a bit more kludgy for backwards compatibility. 
