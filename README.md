@@ -10,13 +10,15 @@ certificate (e.g. `certbot renew`) if put in /etc/letsencrypt/renewal-hooks/depl
 Can also be called directly with the domain name as first argument 
 (e.g. 50_haproxy_deploy.sh foo.example.com )
 
- The script 50_haproxy_deploy creates PEM files in 
+The script 50_haproxy_deploy creates PEM files in 
+```
    /etc/ssl/$TLSNAME/[wildcard.]$TLSNAME.pem
- and creates backups in 
+```
+and creates backups in 
+```
    /etc/ssl/$TLSNAME/backup.YYYYMMDD.HHMMSS/
-
- where [wildcard.] is used to replace the '\*' character 
- if the script detects your certificate is a wildcard cert (e.g. \*.example.com) 
+```
+where [wildcard.] is used to replace the '\*' character if the script detects your certificate is a wildcard cert (e.g. \*.example.com) 
 
 If you have more than one certificate, having the following in the haproxy.cfg file
 
@@ -27,8 +29,9 @@ allows HA-Proxy to read all pem files in that directory at once.
 The script 50_haproxy_deploy defines the variable $HAPROXY_CRT_DIR (e.g. /etc/haproxy/crts ) 
 and if that directory exists, this script creates a softlink to the new/renewed PEM file
 as
+```
    $HAPROXY_CRT_DIR/[wildcard.]$TLSNAME.pem -> /etc/ssl/$TLSNAME/[wildcard.]$TLSNAME.pem
-
+```
 This takes advantage of HA-Proxy's ability to use a config dir for the crt directive(s)
 so that adding new (sub)domains can be done without re-editing the haproxy.cfg file.   
 
@@ -54,7 +57,11 @@ Mail GNU Mailutils version>=3.4 (Ubuntu 18.04 and up)
 is different than version 2.99.99 (Ubuntu 16.04 and up) in how
 it interprets the -t, --to flag.
 Version 3.4 states
-    ```read recipients from the message header (e.g. To: <foo@example.com> )```
+```
+   read recipients from the message header (e.g. To: <foo@example.com> )
+```
 Version 2.99.99 states
-    ```precede message by a list of addresses (e.g. foo@example.com )```
+```
+   precede message by a list of addresses (e.g. foo@example.com )
+```
 so mailing component is a bit more kludgy for backwards compatibility. 
