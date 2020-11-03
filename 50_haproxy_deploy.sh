@@ -42,6 +42,8 @@ DATETIME=$(date +%Y%m%d_%H%M%S)
 PEM_ROOT_DIR="/etc/ssl"
 HAPROXY_CRT_DIR="/etc/haproxy/crts/"
 
+MY_GLOBAL_IP=$(dig @ns1-1.akamaitech.net ANY whoami.akamai.net +short)
+
 MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 if [[ $THIS_LINEAGE_COMMANDLINE == "" ]]; then
   TLSNAME=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
@@ -50,12 +52,13 @@ else
   TLSNAME="$THIS_LINEAGE_COMMANDLINE"
 fi
 
+#Setup File for outboud mail report
 echo "To: <$EMAIL_TO>
-Subject: Letsencrypt Renewal of $TLSNAME on $FQDN
+Subject: Letsencrypt Renewal of $TLSNAME on $FQDN at $MY_GLOBAL_IP
 From: <$FROM>
 
 The Letsencrypt Certificate(s) $RENEWED_DOMAINS has(have) been renewed and downloaded
-and is(are) about to be deployed at $FQDN
+and is(are) about to be deployed for $FQDN at $MY_GLOBAL_IP
 TLSNAME=$TLSNAME
 
 Some variables:
@@ -88,7 +91,7 @@ if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
   echo "CRT=$CRT_PATH and KEY=$KEY_PATH"
   echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
   echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 
