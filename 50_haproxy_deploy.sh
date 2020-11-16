@@ -92,8 +92,8 @@ KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | sed -e
 if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
   DEBUG_CERTBOT=$(certbot certificates -d "$TLSNAME")
   echo "Error: CRT or KEY path is blank. Exiting."
-  echo "CRT=$CRT_PATH and KEY=$KEY_PATH"
   echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
+  echo "CRT=$CRT_PATH and KEY=$KEY_PATH"
   echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> "$MESSAGE_FILE"
   echo "DEBUG_CERTBOT = $DEBUG_CERTBOT" >> "$MESSAGE_FILE"
   $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
