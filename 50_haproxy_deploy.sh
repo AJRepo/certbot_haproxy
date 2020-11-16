@@ -83,14 +83,19 @@ if [[ "$TLSNAME" == "" ]]; then
   exit 1
 fi
 
-CRT_PATH=$(certbot certificates -d "$TLSNAME" | grep "Certificate Path" | awk -F : '{print $2}' | sed -e /\ /s///)
-KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F : '{print $2}' | sed -e /\ /s///)
+#Note: FOO=$(certbot ... ) outputs different carriage when called via cron vs command line
+#CRT_PATH=$(certbot certificates -d "$TLSNAME" | grep "Certificate Path" | awk -F : '{print $2}' | sed -e /\ /s///)
+CRT_PATH=$(certbot certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
+#KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F : '{print $2}' | sed -e /\ /s///)
+KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | sed -e /.*"Private Key Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
 
 if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
+  DEBUG_CERTBOT=$(certbot certificates -d "$TLSNAME")
   echo "Error: CRT or KEY path is blank. Exiting."
   echo "CRT=$CRT_PATH and KEY=$KEY_PATH"
   echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
   echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> "$MESSAGE_FILE"
+  echo "DEBUG_CERTBOT = $DEBUG_CERTBOT" >> "$MESSAGE_FILE"
   $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
