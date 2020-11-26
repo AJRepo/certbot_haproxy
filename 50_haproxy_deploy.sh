@@ -46,7 +46,10 @@ MY_GLOBAL_IP=$(dig @ns1-1.akamaitech.net ANY whoami.akamai.net +short)
 
 MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 if [[ $THIS_LINEAGE_COMMANDLINE == "" ]]; then
-  TLSNAME=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
+  TLSNAME_RAW=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text)
+  # command substitution — $() — strips trailing newlines from output in cron vs commandline
+  TLSNAME_ATTEMPT=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
+  TLSNAME=$(echo "$TLSNAME_RAW" | grep DNS | awk -F: '{print $2}')
 else
   #TLSNAME=$(certbot certificates -d "$THIS_LINEAGE_COMMANDLINE" | grep "Domains" | awk -F : '{print $2}' | sed -e /\ /s///)
   TLSNAME="$THIS_LINEAGE_COMMANDLINE"
@@ -60,6 +63,8 @@ From: <$FROM>
 The Letsencrypt Certificate(s) $RENEWED_DOMAINS has(have) been renewed and downloaded
 and is(are) about to be deployed for $FQDN at $MY_GLOBAL_IP
 TLSNAME=$TLSNAME
+TLSNAME_ATTEMPT=$TLSNAME_ATTEMPT
+TLSNAME_RAW=$TLSNAME_RAW
 
 Some variables:
 LINEAGE=$RENEWED_LINEAGE
@@ -83,7 +88,7 @@ if [[ "$TLSNAME" == "" ]]; then
   exit 1
 fi
 
-#Note: FOO=$(certbot ... ) outputs different carriage when called via cron vs command line
+#Note: FOO=$() outputs different carriage returns when called via cron vs command line
 #CRT_PATH=$(certbot certificates -d "$TLSNAME" | grep "Certificate Path" | awk -F : '{print $2}' | sed -e /\ /s///)
 CRT_PATH=$(certbot certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
 #KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F : '{print $2}' | sed -e /\ /s///)
@@ -92,8 +97,8 @@ KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | sed -e
 if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
   DEBUG_CERTBOT=$(certbot certificates -d "$TLSNAME")
   echo "Error: CRT or KEY path is blank. Exiting."
-  echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
   echo "CRT=$CRT_PATH and KEY=$KEY_PATH"
+  echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
   echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> "$MESSAGE_FILE"
   echo "DEBUG_CERTBOT = $DEBUG_CERTBOT" >> "$MESSAGE_FILE"
   $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
