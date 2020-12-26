@@ -36,7 +36,7 @@ This takes advantage of HA-Proxy's ability to use a config dir for the crt direc
 so that adding new (sub)domains can be done without re-editing the haproxy.cfg file.   
 
 
-This script will not restart HA-Proxy unless the haproxy.cfg file passes the haproxy
+This script will restart HA-Proxy if the haproxy.cfg file passes a haproxy config file
 check (`haproxy -c -f /etc/haproxy/haproxy.cfg`) 
 
 
