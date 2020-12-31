@@ -85,14 +85,14 @@ echo "TLSNAME=$TLSNAME" >> "$MESSAGE_FILE"
 if [[ "$TLSNAME" == "" ]]; then
   echo "Error: TLSNAME is blank. Exiting."
   echo "Error: TLSNAME is blank. Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 
 if [[ ! $($CERTBOT --version) ]]; then
   echo "Errot: Certbot command not found. Exiting"
   echo "Errot: Certbot command not found. Exiting" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 
@@ -143,7 +143,7 @@ fi
 if [[ $TLSNAME == "" ]]; then
   echo "Error: Domain not found in letsencrypt/live/.... Exiting."
   echo "Error: Domain not found in letsencrypt/live/.... Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 #Make a backup
@@ -152,7 +152,7 @@ if mkdir -p "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
   cp "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/"*.pem "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
 else
   echo "Not continuing because backup not made" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1;
 fi
 
@@ -174,7 +174,7 @@ fi
 if [[ $? != 0 ]]; then
   echo "unable to copy pem files to $TLSNAME dir"
   echo "unable to copy pem files to $TLSNAME dir" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1
 fi
 
@@ -185,10 +185,10 @@ if haproxy -c -f /etc/haproxy/haproxy.cfg; then
 else
   echo "ERROR: check of haproxy config failed. Not restarting."
   echo "ERROR: check of haproxy config failed. Not restarting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
   exit 1;
 fi
 
 ########Notify about DEPLOY HOOK being called
-$MAIL -s "Letsencrypt Deploy Hook: $TLSNAME" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+$MAIL -s "Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
 #####################################
