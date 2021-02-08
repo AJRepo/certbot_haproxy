@@ -45,17 +45,40 @@ CERTBOT="/usr/bin/certbot"
 
 MY_GLOBAL_IP=$(dig @ns1-1.akamaitech.net ANY whoami.akamai.net +short)
 
+
+function sleep_if_certbot_is_running() {
+	if grep certbot | sed -e /grep/d ; then
+		echo "Certbot Running, sleeping for 5 seconds"
+		sleep 5
+	fi
+}
+
+#Need a sleep command to keep the error "Certbot is already running" from triggering. 
+sleep 20
+
 MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 if [[ $THIS_LINEAGE_COMMANDLINE == "" ]]; then
-  TLSNAME_RAW=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text)
-  # command substitution — $() — strips trailing newlines from output in cron vs commandline
-  TLSNAME_ATTEMPT=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
-  TLSNAME=$(echo "$TLSNAME_RAW" | grep DNS | awk -F: '{print $2}')
+	TLSNAME_RAW=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text)
+	# command substitution — $() — strips trailing newlines from output in cron vs commandline
+	TLSNAME_ATTEMPT=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
+	TLSNAME=$(echo "$TLSNAME_RAW" | grep DNS | awk -F: '{print $2}')
 else
-  #TLSNAME=$($CERTBOT certificates -d "$THIS_LINEAGE_COMMANDLINE" | grep "Domains" | awk -F : '{print $2}' | sed -e /\ /s///)
-  TLSNAME="$THIS_LINEAGE_COMMANDLINE"
+	#TLSNAME=$($CERTBOT certificates -d "$THIS_LINEAGE_COMMANDLINE" | grep "Domains" | awk -F : '{print $2}' | sed -e /\ /s///)
+	TLSNAME="$THIS_LINEAGE_COMMANDLINE"
 fi
 
+
+#CRT_PATH_TEST_HELP=$($CERTBOT --help)
+CRT_PATH_TEST_ALL=$($CERTBOT certificates 2>&1)
+sleep 5
+CRT_PATH_TEST_ZERO=$($CERTBOT certificates -d "$TLSNAME" 2>&1)
+sleep 5
+CRT_PATH_TEST_ONE=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path")
+sleep 5
+CRT_PATH_TEST_TWO=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/)
+sleep 5
+CRT_PATH_TEST_THREE=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' )
+sleep 5
 #Setup File for outboud mail report
 echo "To: <$EMAIL_TO>
 Subject: Letsencrypt Renewal of $TLSNAME on $FQDN at $MY_GLOBAL_IP
@@ -65,7 +88,13 @@ The Letsencrypt Certificate(s) $RENEWED_DOMAINS has(have) been renewed and downl
 and is(are) about to be deployed for $FQDN at $MY_GLOBAL_IP
 TLSNAME=$TLSNAME
 TLSNAME_ATTEMPT=$TLSNAME_ATTEMPT
-TLSNAME_RAW=$TLSNAME_RAW
+TLSNAME_RAW=[REMOVED, works ok]
+CRT_PATH_TEST_HELP=[REMOVED, works ok]
+CRT_PATH_TEST_ALL=$CRT_PATH_TEST_ALL
+CRT_PATH_TEST_ZERO=$CRT_PATH_TEST_ZERO
+CRT_PATH_TEST_ONE=$CRT_PATH_TEST_ONE
+CRT_PATH_TEST_TWO=$CRT_PATH_TEST_TWO
+CRT_PATH_TEST_THREE=$CRT_PATH_TEST_THREE
 
 Some variables:
 LINEAGE=$RENEWED_LINEAGE
@@ -83,34 +112,38 @@ echo "Starting ${0} deploy hook" >> "$MESSAGE_FILE"
 echo "TLSNAME=$TLSNAME" >> "$MESSAGE_FILE"
 
 if [[ "$TLSNAME" == "" ]]; then
-  echo "Error: TLSNAME is blank. Exiting."
-  echo "Error: TLSNAME is blank. Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
-  exit 1
+	echo "Error: TLSNAME is blank. Exiting."
+	echo "Error: TLSNAME is blank. Exiting." >> "$MESSAGE_FILE"
+	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	exit 1
 fi
 
 if [[ ! $($CERTBOT --version) ]]; then
-  echo "Errot: Certbot command not found. Exiting"
-  echo "Errot: Certbot command not found. Exiting" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
-  exit 1
+	echo "Errot: Certbot command not found. Exiting"
+	echo "Errot: Certbot command not found. Exiting" >> "$MESSAGE_FILE"
+	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	exit 1
 fi
+
+sleep 5
 
 #Note: FOO=$() outputs different carriage returns when called via cron vs command line
 #CRT_PATH=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | awk -F : '{print $2}' | sed -e /\ /s///)
 CRT_PATH=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
+sleep 5
 #KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F : '{print $2}' | sed -e /\ /s///)
 KEY_PATH=$($CERTBOT certificates -d "$TLSNAME" | grep "Private Key Path" | sed -e /.*"Private Key Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
+sleep 5
 
 if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
-  DEBUG_CERTBOT=$($CERTBOT certificates -d "$TLSNAME")
-  echo "Error: CRT or KEY path is blank. Exiting."
-  echo "CRT=$CRT_PATH and KEY=$KEY_PATH"
-  echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
-  echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> "$MESSAGE_FILE"
-  echo "DEBUG_CERTBOT = $DEBUG_CERTBOT" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
-  exit 1
+	DEBUG_CERTBOT=$($CERTBOT certificates -d "$TLSNAME")
+	echo "Error: CRT or KEY path is blank. Exiting."
+	echo "CRT=$CRT_PATH and KEY=$KEY_PATH"
+	echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
+	echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> "$MESSAGE_FILE"
+	echo "DEBUG_CERTBOT = $DEBUG_CERTBOT" >> "$MESSAGE_FILE"
+	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	exit 1
 fi
 
 # $TLSNAME could be a wildcard "*.example.com" ...
@@ -120,13 +153,13 @@ echo "THIS_CLEAN_DOMAIN=$THIS_CLEAN_DOMAIN" >> "$MESSAGE_FILE"
 
 TOP=$(echo "$TLSNAME" | awk -F. '{print $1}')
 if [[ "$TOP" == '*' ]]; then
-  WILDCARD=1
-  PEM_FILENAME="wildcard.$THIS_CLEAN_DOMAIN.pem"
-  PEM_FILE="$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/wildcard.$THIS_CLEAN_DOMAIN.pem"
+	WILDCARD=1
+	PEM_FILENAME="wildcard.$THIS_CLEAN_DOMAIN.pem"
+	PEM_FILE="$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/wildcard.$THIS_CLEAN_DOMAIN.pem"
 else
-  WILDCARD=0
-  PEM_FILENAME="$TLSNAME.pem"
-  PEM_FILE="$PEM_ROOT_DIR/$TLSNAME/$TLSNAME.pem"
+	WILDCARD=0
+	PEM_FILENAME="$TLSNAME.pem"
+	PEM_FILE="$PEM_ROOT_DIR/$TLSNAME/$TLSNAME.pem"
 fi
 
 
@@ -141,54 +174,57 @@ fi
 
 #Check that domain is not blank
 if [[ $TLSNAME == "" ]]; then
-  echo "Error: Domain not found in letsencrypt/live/.... Exiting."
-  echo "Error: Domain not found in letsencrypt/live/.... Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
-  exit 1
+	echo "Error: Domain not found in letsencrypt/live/.... Exiting."
+	echo "Error: Domain not found in letsencrypt/live/.... Exiting." >> "$MESSAGE_FILE"
+	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	exit 1
 fi
 #Make a backup
 if mkdir -p "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
  #shellcheck disable=SC2140
-  cp "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/"*.pem "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
+	cp "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/"*.pem "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
 else
-  echo "Not continuing because backup not made" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
-  exit 1;
+	echo "Not continuing because backup not made" >> "$MESSAGE_FILE"
+	$MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	exit 1;
 fi
 
 # TODO: move to tee to allow for being called from sudo
 if [[ $WILDCARD == 0 ]]; then
-  cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
+	cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
 else
-  cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
+	cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
 fi
 
 #if there's a directory of PEM files for HAproxy, then setup soft link if the file doesn't exist
 if [[ -d $HAPROXY_CRT_DIR ]]; then
-  if [[ ! -e "$HAPROXY_CRT_DIR/$PEM_FILENAME" ]]; then
-    ln -s "$PEM_FILE" "$HAPROXY_CRT_DIR/$PEM_FILENAME"
-  fi
+	if [[ ! -e "$HAPROXY_CRT_DIR/$PEM_FILENAME" ]]; then
+		ln -s "$PEM_FILE" "$HAPROXY_CRT_DIR/$PEM_FILENAME"
+	fi
 fi
 
 #shellcheck disable=SC2181
 if [[ $? != 0 ]]; then
-  echo "unable to copy pem files to $TLSNAME dir"
-  echo "unable to copy pem files to $TLSNAME dir" >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
-  exit 1
+	echo "unable to copy pem files to $TLSNAME dir"
+	echo "unable to copy pem files to $TLSNAME dir" >> "$MESSAGE_FILE"
+	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	exit 1
 fi
 
-# Reload  HAProxy
+# Reload HAProxy
 if haproxy -c -f /etc/haproxy/haproxy.cfg; then 
-  service haproxy reload
-  echo "HAProxy reloaded" >> "$MESSAGE_FILE"
+	service haproxy reload
+	echo "HAProxy reloaded" >> "$MESSAGE_FILE"
 else
-  echo "ERROR: check of haproxy config failed. Not restarting."
-  echo "ERROR: check of haproxy config failed. Not restarting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
-  exit 1;
+	echo "ERROR: check of haproxy config failed. Not restarting."
+	echo "ERROR: check of haproxy config failed. Not restarting." >> "$MESSAGE_FILE"
+	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	exit 1;
 fi
 
 ########Notify about DEPLOY HOOK being called
 $MAIL -s "Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
 #####################################
+
+#Note: Must use tabs instead of spaces for heredoc (<<-) to work
+# vim: syntax=bash tabstop=2 shiftwidth=2 noexpandtab
