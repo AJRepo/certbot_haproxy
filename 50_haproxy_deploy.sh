@@ -36,49 +36,105 @@ FROM="HaProxy@$FQDN"
 EMAIL_TO="certbot@$HOST_DOMAIN"
 MAIL="/usr/bin/mail"
 THIS_SCRIPT=${0}
-THIS_LINEAGE_COMMANDLINE=${1}
+THIS_TLSNAME_COMMANDLINE=${1}
 #X3_FILE=$Z_BASE_DIR/ssl/letsencrypt/lets-encrypt-x3-cross-signed.pem.txt
 DATETIME=$(date +%Y%m%d_%H%M%S)
 PEM_ROOT_DIR="/etc/ssl"
 HAPROXY_CRT_DIR="/etc/haproxy/crts/"
-CERTBOT="/usr/bin/certbot"
+CERTBOT_TMP_WORKDIR="/tmp/cb_deploy_workdir"
+CERTBOT_TMP_LOGDIR="/tmp/cb_deploy_logdir"
+CERTBOT="/usr/bin/certbot --work-dir $CERTBOT_TMP_WORKDIR --logs-dir $CERTBOT_TMP_LOGDIR "
 
 MY_GLOBAL_IP=$(dig @ns1-1.akamaitech.net ANY whoami.akamai.net +short)
 
+MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
+
+###### functions ###########################################
 
 function sleep_if_certbot_is_running() {
-	if grep certbot | sed -e /grep/d ; then
+	#Certbot stops if it finds a lock file in one of a few places. 
+	if ps auxwwww | sed -e /grep/d | grep certbot ; then
 		echo "Certbot Running, sleeping for 5 seconds"
+		if [ -w $MESSAGE_FILE ]; then
+			echo "Certbot Running, sleeping for 5 seconds" >> $MESSAGE_FILE
+		fi
 		sleep 5
+	else
+		echo "Continuing"
 	fi
 }
 
-#Need a sleep command to keep the error "Certbot is already running" from triggering. 
-sleep 20
+function get_key_file() {
+	local this_tlsname=$1
+	local -n _ret_val=$2
+	#$RENEWED_LINEAGE is set only if called from certbot deploy
+	sleep_if_certbot_is_running
+	_ret_val=$($CERTBOT certificates -d "$this_tlsname" | grep "Private Key Path" | sed -e /.*"Private Key Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
+	if [[ $this_key_path == "" && $RENEWED_LINEAGE != "" ]]; then
+		echo "KEY_PATH is blank falling back to guessing"
+		if [ -r "$RENEWED_LINEAGE/privkey.pem" ]; then
+			_ret_val="$RENEWED_LINEAGE/privkey.pem"
+		fi
+	fi
+	if [[ $_ret_val == "" ]]; then
+		return 1
+	else
+		return 0
+	fi
+}
 
-MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
-if [[ $THIS_LINEAGE_COMMANDLINE == "" ]]; then
+function get_crt_file() {
+	local this_tlsname=$1
+	local -n _ret_val=$2
+	#$RENEWED_LINEAGE is set only if called from certbot deploy
+	sleep_if_certbot_is_running
+	_ret_val=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
+	if [[ $this_crt_path == "" && $RENEWED_LINEAGE != ""i ]]; then
+		echo "CRT_PATH is blank falling back to guessing"
+		if [ -r "$RENEWED_LINEAGE/fullchain.pem" ]; then
+			_ret_val="$RENEWED_LINEAGE/fullchain.pem"
+		fi
+	fi
+	if [[ $_ret_val == "" ]]; then
+		return 1
+	else
+		return 0
+	fi
+}
+
+####### working dirs #################################
+# To try to keep lockfile collisions from happening 
+if [ ! -d $CERTBOT_TMP_LOGDIR ]; then 
+	mkdir $CERTBOT_TMP_LOGDIR
+fi
+if [ ! -d $CERTBOT_TMP_WORKDIR ]; then 
+	mkdir $CERTBOT_TMP_WORKDIR
+fi
+######################################################
+
+
+if [[ $THIS_TLSNAME_COMMANDLINE == "" && "$RENEWED_LINEAGE" == "" ]]; then
+	echo "Must be called with a valid TLSNAME. Exiting"
+	exit 1
+fi
+
+#DEBUG: sleep for certbot lock file? 
+sleep 5
+echo "Sleep 5 seconds over"
+
+
+if [[ $THIS_TLSNAME_COMMANDLINE == "" ]]; then
 	TLSNAME_RAW=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text)
 	# command substitution — $() — strips trailing newlines from output in cron vs commandline
 	TLSNAME_ATTEMPT=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
 	TLSNAME=$(echo "$TLSNAME_RAW" | grep DNS | awk -F: '{print $2}')
 else
-	#TLSNAME=$($CERTBOT certificates -d "$THIS_LINEAGE_COMMANDLINE" | grep "Domains" | awk -F : '{print $2}' | sed -e /\ /s///)
-	TLSNAME="$THIS_LINEAGE_COMMANDLINE"
+	#TLSNAME=$($CERTBOT certificates -d "$THIS_TLSNAME_COMMANDLINE" | grep "Domains" | awk -F : '{print $2}' | sed -e /\ /s///)
+	TLSNAME="$THIS_TLSNAME_COMMANDLINE"
 fi
 
+###################################################
 
-#CRT_PATH_TEST_HELP=$($CERTBOT --help)
-CRT_PATH_TEST_ALL=$($CERTBOT certificates 2>&1)
-sleep 5
-CRT_PATH_TEST_ZERO=$($CERTBOT certificates -d "$TLSNAME" 2>&1)
-sleep 5
-CRT_PATH_TEST_ONE=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path")
-sleep 5
-CRT_PATH_TEST_TWO=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/)
-sleep 5
-CRT_PATH_TEST_THREE=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' )
-sleep 5
 #Setup File for outboud mail report
 echo "To: <$EMAIL_TO>
 Subject: Letsencrypt Renewal of $TLSNAME on $FQDN at $MY_GLOBAL_IP
@@ -87,27 +143,67 @@ From: <$FROM>
 The Letsencrypt Certificate(s) $RENEWED_DOMAINS has(have) been renewed and downloaded
 and is(are) about to be deployed for $FQDN at $MY_GLOBAL_IP
 TLSNAME=$TLSNAME
-TLSNAME_ATTEMPT=$TLSNAME_ATTEMPT
-TLSNAME_RAW=[REMOVED, works ok]
-CRT_PATH_TEST_HELP=[REMOVED, works ok]
-CRT_PATH_TEST_ALL=$CRT_PATH_TEST_ALL
-CRT_PATH_TEST_ZERO=$CRT_PATH_TEST_ZERO
-CRT_PATH_TEST_ONE=$CRT_PATH_TEST_ONE
-CRT_PATH_TEST_TWO=$CRT_PATH_TEST_TWO
-CRT_PATH_TEST_THREE=$CRT_PATH_TEST_THREE
-
-Some variables:
-LINEAGE=$RENEWED_LINEAGE
-RENEWED=$RENEWED_DOMAINS
-THIS_LINEAGE_COMMANDLINE=$THIS_LINEAGE_COMMANDLINE
 
 This message generated by $THIS_SCRIPT
 -------------------------
 Deploy Log:" > "$MESSAGE_FILE"
+################################################
+
+
+#CRT_PATH_TEST_ALL=$($CERTBOT certificates 2>&1)
+#sleep_if_certbot_is_running
+#CRT_PATH_TEST_ZERO=$($CERTBOT certificates -d "$TLSNAME" 2>&1)
+
+#DEBUGGING CODE
+#sleep_if_certbot_is_running
+#CRT_PATH_TEST_ONE=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" 2>&1)
+#
+#if [[ $? != 0 ]]; then
+#	echo "Unable to run certbot"
+#	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+#	exit 1
+#fi
+#
+#sleep_if_certbot_is_running
+#CRT_PATH_TEST_TWO=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ 2>&1)
+#
+#if [[ $? != 0 ]]; then
+#	echo "Unable to run certbot"
+#	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+#	exit 1
+#fi
+#
+#sleep_if_certbot_is_running
+#CRT_PATH_TEST_THREE=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' 2>&1)
+#
+#if [[ $? != 0 ]]; then
+#	echo "Unable to run certbot"
+#	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+#	exit 1
+#fi
+#REMOVED FROM Email message
+#TLSNAME_RAW=[REMOVED, works ok]
+#CRT_PATH_TEST_HELP=[REMOVED, works ok]
+#CRT_PATH_TEST_ALL=$CRT_PATH_TEST_ALL
+#CRT_PATH_TEST_ZERO=$CRT_PATH_TEST_ZERO
+#CRT_PATH_TEST_ONE=$CRT_PATH_TEST_ONE
+#CRT_PATH_TEST_TWO=$CRT_PATH_TEST_TWO
+#CRT_PATH_TEST_THREE=$CRT_PATH_TEST_THREE
+
+#Append to File for outboud mail report
+echo "
+TLSNAME_ATTEMPT=$TLSNAME_ATTEMPT
+
+Some variables:
+LINEAGE=$RENEWED_LINEAGE
+RENEWED=$RENEWED_DOMAINS
+THIS_TLSNAME_COMMANDLINE=$THIS_TLSNAME_COMMANDLINE
+
+This message generated by $THIS_SCRIPT
+-------------------------
+Deploy Log:" >> "$MESSAGE_FILE"
 
 echo "Starting ${0} deploy hook" >> "$MESSAGE_FILE"
-
-
 
 echo "TLSNAME=$TLSNAME" >> "$MESSAGE_FILE"
 
@@ -119,21 +215,20 @@ if [[ "$TLSNAME" == "" ]]; then
 fi
 
 if [[ ! $($CERTBOT --version) ]]; then
-	echo "Errot: Certbot command not found. Exiting"
-	echo "Errot: Certbot command not found. Exiting" >> "$MESSAGE_FILE"
+	echo "Error: Certbot command not found. Exiting"
+	echo "Error: Certbot command not found. Exiting" >> "$MESSAGE_FILE"
 	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
 	exit 1
 fi
 
-sleep 5
-
 #Note: FOO=$() outputs different carriage returns when called via cron vs command line
-#CRT_PATH=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | awk -F : '{print $2}' | sed -e /\ /s///)
-CRT_PATH=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
-sleep 5
+get_crt_file "$TLSNAME" CRT_PATH
+
 #KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F : '{print $2}' | sed -e /\ /s///)
-KEY_PATH=$($CERTBOT certificates -d "$TLSNAME" | grep "Private Key Path" | sed -e /.*"Private Key Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
-sleep 5
+#KEY_PATH=$($CERTBOT certificates -d "$TLSNAME" | grep "Private Key Path" | sed -e /.*"Private Key Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
+
+get_key_file "$TLSNAME" KEY_PATH
+
 
 if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
 	DEBUG_CERTBOT=$($CERTBOT certificates -d "$TLSNAME")
@@ -144,6 +239,8 @@ if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
 	echo "DEBUG_CERTBOT = $DEBUG_CERTBOT" >> "$MESSAGE_FILE"
 	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
 	exit 1
+else
+	echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> $MESSAGE_FILE
 fi
 
 # $TLSNAME could be a wildcard "*.example.com" ...
@@ -163,7 +260,7 @@ else
 fi
 
 
-#echo "THIS_LINEAGE_COMMANDLINE=$THIS_LINEAGE_COMMANDLINE"
+#echo "THIS_TLSNAME_COMMANDLINE=$THIS_TLSNAME_COMMANDLINE"
 #echo "TLSNAME=$TLSNAME"
 #echo "PEM_FILE=$PEM_FILE"
 #echo "CRT_PATH=$CRT_PATH"
@@ -227,4 +324,4 @@ $MAIL -s "Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "
 #####################################
 
 #Note: Must use tabs instead of spaces for heredoc (<<-) to work
-# vim: syntax=bash tabstop=2 shiftwidth=2 noexpandtab
+# vim: tabstop=2 shiftwidth=2 noexpandtab
