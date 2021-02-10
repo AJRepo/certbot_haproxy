@@ -53,7 +53,8 @@ MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 
 function sleep_if_certbot_is_running() {
 	#Certbot stops if it finds a lock file in one of a few places. 
-	if ps auxwwww | sed -e /grep/d | grep certbot ; then
+  local this_this_script =$(basename $THIS_SCRIPT)
+	if ps auxwwww | sed -e /grep/d | sed -e /$this_this_script/d | grep certbot > /dev/null ; then
 		echo "Certbot Running, sleeping for 5 seconds"
 		if [ -w "$MESSAGE_FILE" ]; then
 			echo "Certbot Running, sleeping for 5 seconds" >> "$MESSAGE_FILE"
@@ -77,6 +78,7 @@ function get_pem_file() {
 	#$RENEWED_LINEAGE is set only if called from certbot deploy
 	sleep_if_certbot_is_running
 	_ret_val=$($CERTBOT certificates -d "$this_tlsname" | grep "$this_filename" | awk -F: '{print $2}' | sed -e /\ /s///)
+	#echo "DEBUG: RET_VAL = $_ret_val"
 	if [[ $_ret_val == "" && $RENEWED_LINEAGE != "" ]]; then
 		echo "KEY_PATH is blank falling back to guessing"
 		if [ -r "$RENEWED_LINEAGE/$this_filename" ]; then
@@ -261,6 +263,7 @@ if [[ $TLSNAME == "" ]]; then
 	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
 	exit 1
 fi
+
 #Make a backup
 if mkdir -p "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
  #shellcheck disable=SC2140
