@@ -107,24 +107,6 @@ else
   fi
 fi
 
-##Check CRT and KEY
-# Example output of "sudo certbot certificates -d example.net"
-#  Certificate Name: example.net
-#    Domains: example.net
-#    Expiry Date: 2020-12-15 20:03:02+00:00 (VALID: 89 days)
-#    Certificate Path: /etc/letsencrypt/live/example.net/fullchain.pem
-#    Private Key Path: /etc/letsencrypt/live/example.net/privkey.pem
-CRT_PATH=$(certbot certificates -d "$TLSNAME" | grep "Certificate Path" | awk -F : '{print $2}' | sed -e /\ /s///)
-KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F : '{print $2}' | sed -e /\ /s///)
-
-if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
-  echo "Error: CRT or KEY path is blank. Exiting."
-  echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
-  $MAIL -s "Error: Letsencrypt Deploy Hook: $RENEWED_DOMAINS" -t "$EMAIL_TO" < "$MESSAGE_FILE"
-  exit 1
-fi
-
-
 ##################################
 
 
