@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 
-#Assumes fully specified HAPROXY pem files are stored in $HAPROXY_CRT_DIR/$TLSNAME/$TLSNAME.pem
-#Assumes wildcard HAPROXY pem files are stored in $HAPROXY_CRT_DIR/$TLSNAME/wildcard.$TLSNAME.pem
+# This script is mostly obsolete. It was originally written to call certbot and 
+# then deploy the .pem files for HaProxy. Now most of the functionality is in the
+# deploy script 50_haproxy_deploy.sh . When put in /etc/letsencrypt/renewa-hooks/deploy/
+# 50_haproxy_deploy.sh runs automatically when certbot registers/renews certs.
+# 
+# The one part that isn't obsolete is the wildcard DNS renewal for dreamhost. 
+# A sample file now exists named: sample_wildcard_dreamhost_renew.sh 
+##########################################################################
+#Assumes HAPROXY pem files are stored in $HAPROXY_CRT_DIR/$TLSNAME/$TLSNAME.pem
+#Assumes wildcard pem files are stored in $HAPROXY_CRT_DIR/$TLSNAME/wildcard.$TLSNAME.pem
 #Assumes certbot manual hooks are in /etc/letsencrypt/manual-hooks/
 
 #Success -> /etc/letsencrypt/renewal-hooks/deploy/50_haproxy.sh
