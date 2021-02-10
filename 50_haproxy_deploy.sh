@@ -64,35 +64,23 @@ function sleep_if_certbot_is_running() {
 	fi
 }
 
-function get_key_file() {
+function get_pem_file() {
 	local this_tlsname=$1
-	local -n _ret_val=$2
+	#filename should be privkey.pem or fullchain.pem
+	local this_filename=$2
+	local -n _ret_val=$3
+
+	if [[ ! ( $this_filename == "privkey.pem" || $this_filename == "fullchain.pem" ) ]]; then
+		echo "Error: filename valid."
+		return 1
+	fi
 	#$RENEWED_LINEAGE is set only if called from certbot deploy
 	sleep_if_certbot_is_running
 	_ret_val=$($CERTBOT certificates -d "$this_tlsname" | grep "Private Key Path" | sed -e /.*"Private Key Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
 	if [[ $_ret_val == "" && $RENEWED_LINEAGE != "" ]]; then
 		echo "KEY_PATH is blank falling back to guessing"
-		if [ -r "$RENEWED_LINEAGE/privkey.pem" ]; then
-			_ret_val="$RENEWED_LINEAGE/privkey.pem"
-		fi
-	fi
-	if [[ $_ret_val == "" ]]; then
-		return 1
-	else
-		return 0
-	fi
-}
-
-function get_crt_file() {
-	local this_tlsname=$1
-	local -n _ret_val=$2
-	#$RENEWED_LINEAGE is set only if called from certbot deploy
-	sleep_if_certbot_is_running
-	_ret_val=$($CERTBOT certificates -d "$TLSNAME" | grep "Certificate Path" | sed -e /.*"Certificate Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
-	if [[ $_ret_val == "" && $RENEWED_LINEAGE != "" ]]; then
-		echo "CRT_PATH is blank falling back to guessing"
-		if [ -r "$RENEWED_LINEAGE/fullchain.pem" ]; then
-			_ret_val="$RENEWED_LINEAGE/fullchain.pem"
+		if [ -r "$RENEWED_LINEAGE/$this_filename" ]; then
+			_ret_val="$RENEWED_LINEAGE/$this_filename"
 		fi
 	fi
 	if [[ $_ret_val == "" ]]; then
@@ -222,12 +210,11 @@ if [[ ! $($CERTBOT --version) ]]; then
 fi
 
 #Note: FOO=$() outputs different carriage returns when called via cron vs command line
-get_crt_file "$TLSNAME" CRT_PATH
+get_pem_file "$TLSNAME" "fullchain.pem" CRT_PATH
 
 #KEY_PATH=$(certbot certificates -d "$TLSNAME" | grep "Private Key Path" | awk -F : '{print $2}' | sed -e /\ /s///)
-#KEY_PATH=$($CERTBOT certificates -d "$TLSNAME" | grep "Private Key Path" | sed -e /.*"Private Key Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
 
-get_key_file "$TLSNAME" KEY_PATH
+get_pem_file "$TLSNAME" "privkey.pem" KEY_PATH
 
 
 if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
