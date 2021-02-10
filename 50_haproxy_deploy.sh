@@ -76,7 +76,7 @@ function get_pem_file() {
 	fi
 	#$RENEWED_LINEAGE is set only if called from certbot deploy
 	sleep_if_certbot_is_running
-	_ret_val=$($CERTBOT certificates -d "$this_tlsname" | grep "Private Key Path" | sed -e /.*"Private Key Path"/s//CN/ | awk '{print $2}' | sed -e /\ /s///)
+	_ret_val=$($CERTBOT certificates -d "$this_tlsname" | grep "$this_filename" | awk -F: '{print $2}' | sed -e /\ /s///)
 	if [[ $_ret_val == "" && $RENEWED_LINEAGE != "" ]]; then
 		echo "KEY_PATH is blank falling back to guessing"
 		if [ -r "$RENEWED_LINEAGE/$this_filename" ]; then
