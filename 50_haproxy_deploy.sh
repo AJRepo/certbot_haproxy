@@ -53,8 +53,9 @@ MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 
 function sleep_if_certbot_is_running() {
 	#Certbot stops if it finds a lock file in one of a few places. 
-  local this_this_script =$(basename $THIS_SCRIPT)
-	if ps auxwwww | sed -e /grep/d | sed -e /$this_this_script/d | grep certbot > /dev/null ; then
+  local this_this_script=""
+  this_this_script=$(basename "$THIS_SCRIPT")
+	if ps auxwwww | sed -e /grep/d | sed -e /"$this_this_script"/d | grep certbot > /dev/null ; then
 		echo "Certbot Running, sleeping for 5 seconds"
 		if [ -w "$MESSAGE_FILE" ]; then
 			echo "Certbot Running, sleeping for 5 seconds" >> "$MESSAGE_FILE"
