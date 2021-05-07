@@ -51,6 +51,19 @@ MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 
 ###### functions ###########################################
 
+# function: is_certbot_running()
+# If certbot is running, return 1, else return 0
+function is_certbot_running() {
+	#Certbot stops if it finds a lock file in one of a few places. 
+  local this_this_script=""
+  this_this_script=$(basename "$THIS_SCRIPT")
+	if ps auxwwww | sed -e /grep/d | sed -e /"$this_this_script"/d | grep certbot > /dev/null ; then
+		echo 'true'
+	else
+		echo 'false'
+	fi
+}
+
 function sleep_if_certbot_is_running() {
 	#Certbot stops if it finds a lock file in one of a few places. 
   local this_this_script=""
@@ -77,15 +90,17 @@ function get_pem_file() {
 		return 1
 	fi
 	#$RENEWED_LINEAGE is set only if called from certbot deploy
-	sleep_if_certbot_is_running
-	_ret_val=$($CERTBOT certificates -d "$this_tlsname" | grep "$this_filename" | awk -F: '{print $2}' | sed -e /\ /s///)
-	#echo "DEBUG: RET_VAL = $_ret_val"
-	if [[ $_ret_val == "" && $RENEWED_LINEAGE != "" ]]; then
-		echo "KEY_PATH is blank falling back to guessing"
+  if [[ $(is_certbot_running) == 'true' ]]; then
+	  #sleep_if_certbot_is_running
+		echo "certbot running: falling back to looking at $RENEWED_LINEAGE/$this_filename"
 		if [ -r "$RENEWED_LINEAGE/$this_filename" ]; then
 			_ret_val="$RENEWED_LINEAGE/$this_filename"
 		fi
-	fi
+  else 
+	  _ret_val=$($CERTBOT certificates -d "$this_tlsname" | grep "$this_filename" | awk -F: '{print $2}' | sed -e /\ /s///)
+  fi
+
+	#echo "DEBUG: RET_VAL = $_ret_val"
 	if [[ $_ret_val == "" ]]; then
 		return 1
 	else
