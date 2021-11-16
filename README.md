@@ -1,6 +1,6 @@
 # certbot_haproxy
 
-Scripts to handle certbot renewals automatically on haproxy with letsencrypt hooks
+Scripts to handle certbot renewals automatically on HAProxy with letsencrypt hooks
 
 Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS. 
   
@@ -24,7 +24,7 @@ If you have more than one certificate, having the following in the haproxy.cfg f
 
    `bind *:443 ssl crt /etc/haproxy/crts/`
 
-allows HA-Proxy to read all pem files in that directory at once. 
+allows HAProxy to read all pem files in that directory at once. 
 
 The script 50_haproxy_deploy defines the variable $HAPROXY_CRT_DIR (e.g. /etc/haproxy/crts ) 
 and if that directory exists, this script creates a softlink to the new/renewed PEM file
@@ -32,11 +32,11 @@ as
 ```
    $HAPROXY_CRT_DIR/[wildcard.]$TLSNAME.pem -> /etc/ssl/$TLSNAME/[wildcard.]$TLSNAME.pem
 ```
-This takes advantage of HA-Proxy's ability to use a config dir for the crt directive(s)
+This takes advantage of HAProxy's ability to use a config dir for the crt directive(s)
 so that adding new (sub)domains can be done without re-editing the haproxy.cfg file.   
 
 
-This script will restart HA-Proxy if the haproxy.cfg file passes a haproxy config file
+This script will restart HAProxy if the haproxy.cfg file passes a haproxy config file
 check (`haproxy -c -f /etc/haproxy/haproxy.cfg`) 
 
 
