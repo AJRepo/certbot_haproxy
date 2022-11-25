@@ -3,6 +3,26 @@
 Scripts to handle certbot renewals automatically on HAProxy with letsencrypt hooks
 
 Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS. 
+
+#Quickstart 
+
+* Install Haproxy
+
+* Install Certbot/Letsencrypt
+
+* Run Certbot to get your certificates. 
+
+* Tell HAProxy all certificates are in /etc/haproxy/crts by adding this to your SSL frontend
+      bind *:443 ssl crt /etc/haproxy/crts/
+or change the variable HAPROXY_CRT_DIR in the script 50_haproxy_deploy.sh .
+
+* Make sure /etc/ssl exists which is where certbot will put a copy of the .pem files. 
+
+* Install 50_haproxy_deploy.sh to /etc/letsencrypt/renewal-hooks/deploy/
+
+* Run a Certbot renewal or test as "./50_haproxy_deploy.sh your_cert_domain_here" . 
+
+#Details
   
 50_haproxy_deploy.sh is called automatically on successful creation/renewal of a
 certificate (e.g. `certbot renew`) if put in /etc/letsencrypt/renewal-hooks/deploy/
