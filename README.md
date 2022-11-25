@@ -13,7 +13,9 @@ Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS.
 * Run Certbot to get your certificates. 
 
 * Tell HAProxy all certificates are in /etc/haproxy/crts by adding this to your SSL frontend
-      bind *:443 ssl crt /etc/haproxy/crts/
+```
+    bind *:443 ssl crt /etc/haproxy/crts/
+```
 or change the variable HAPROXY_CRT_DIR in the script 50_haproxy_deploy.sh .
 
 * Make sure /etc/ssl exists which is where certbot will put a copy of the .pem files. 
@@ -46,12 +48,13 @@ If you have more than one certificate, having the following in the haproxy.cfg f
 
 allows HAProxy to read all pem files in that directory at once. 
 
-The script 50_haproxy_deploy defines the variable $HAPROXY_CRT_DIR (e.g. /etc/haproxy/crts ) 
+The script defines the variable `$HAPROXY_CRT_DIR` (e.g. /etc/haproxy/crts ) 
 and if that directory exists, this script creates a softlink to the new/renewed PEM file
 as
 ```
    $HAPROXY_CRT_DIR/[wildcard.]$TLSNAME.pem -> /etc/ssl/$TLSNAME/[wildcard.]$TLSNAME.pem
 ```
+
 This takes advantage of HAProxy's ability to use a config dir for the crt directive(s)
 so that adding new (sub)domains can be done without re-editing the haproxy.cfg file.   
 
