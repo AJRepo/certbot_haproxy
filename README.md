@@ -28,13 +28,14 @@ Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS.
   
   If using a TXT dns challenge and you have dreamhost for your registrar, then you'd use something like this:
 
-      sudo certbot certonly -d foo.example.com --agree-tos --manual --email YOUR_EMAIL  \
-      --preferred-challenges dns  --manual-auth-hook /path/to/dreamhost_certbot_auth_hook.sh  \
+      sudo certbot certonly -d foo.example.com --agree-tos --manual --email YOUR_EMAIL \
+      --preferred-challenges dns  --manual-auth-hook /path/to/dreamhost_certbot_auth_hook.sh \
       --manual-cleanup-hook /path/to/dreamhost_certbot_cleanup_hook.sh    --manual-public-ip-logging-ok
 
   If using HAProxy to answer and pass on challenges on port 8888 to certbot you'd use someing like this:
 
-    sudo certbot certonly --standalone -d  foo.example.com --non-interactive --agree-tos --email YOUR_EMAIL --debug-challenges  --http-01-port=8888 --preferred-challenges=http,tls-sni-01
+      sudo certbot certonly --standalone -d  foo.example.com --non-interactive --agree-tos --email YOUR_EMAIL \
+      --debug-challenges  --http-01-port=8888 --preferred-challenges=http,tls-sni-01
 
 
 * To test this script by itself run `./50_haproxy_deploy.sh FOO.example.com` where FOO.example.com is your domain to protect, and see if it successfully detects the certbot TLS and deploys it. 
