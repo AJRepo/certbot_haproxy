@@ -15,23 +15,26 @@ Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS.
 * Get HAProxy and This Script to agree on where all certificates will be stored. 
 
   * To tell HAProxy to store in `/etc/haproxy/crts` then add the following to your HAProxy config SSL frontend
-```
-    bind *:443 ssl crt /etc/haproxy/crts/
-```
-  * To tell this script the same thing  change the variable `HAPROXY_CRT_DIR` in the script `50_haproxy_deploy.sh` .
+
+        bind *:443 ssl crt /etc/haproxy/crts/
+
+   * To tell this script the same thing  change the variable `HAPROXY_CRT_DIR` in the script `50_haproxy_deploy.sh` .
  
 * Make sure /etc/ssl exists which is where certbot will put a copy of the .pem files. 
 
 * Copy the file `50_haproxy_deploy.sh` to the `/etc/letsencrypt/renewal-hooks/deploy/` directory
 
-* Run Certbot to get your certificates. Let's say for this quickstart it is foo.example.com. 
-If using a TXT dns challenge and you have dreamhost for your registrar, then you'd use something like this:
+* Run Certbot to get your certificates. Let's say for this quickstart it is foo.example.com:
+  
+  If using a TXT dns challenge and you have dreamhost for your registrar, then you'd use something like this:
 
-`sudo certbot certonly -d foo.example.com --agree-tos --manual --email YOUR_EMAIL  --preferred-challenges dns  --manual-auth-hook /path/to/dreamhost_certbot_auth_hook.sh   --manual-cleanup-hook /path/to/dreamhost_certbot_cleanup_hook.sh    --manual-public-ip-logging-ok` 
+      sudo certbot certonly -d foo.example.com --agree-tos --manual --email YOUR_EMAIL  \
+      --preferred-challenges dns  --manual-auth-hook /path/to/dreamhost_certbot_auth_hook.sh  \
+      --manual-cleanup-hook /path/to/dreamhost_certbot_cleanup_hook.sh    --manual-public-ip-logging-ok
 
-If using HAProxy to answer and pass on challenges on port 8888 to certbot you'd use someing like this:
+  If using HAProxy to answer and pass on challenges on port 8888 to certbot you'd use someing like this:
 
-`sudo certbot certonly --standalone -d  foo.example.com --non-interactive --agree-tos --email YOUR_EMAIL --debug-challenges  --http-01-port=8888 --preferred-challenges=http,tls-sni-01`
+    sudo certbot certonly --standalone -d  foo.example.com --non-interactive --agree-tos --email YOUR_EMAIL --debug-challenges  --http-01-port=8888 --preferred-challenges=http,tls-sni-01
 
 
 * To test this script by itself run `./50_haproxy_deploy.sh FOO.example.com` where FOO.example.com is your domain to protect, and see if it successfully detects the certbot TLS and deploys it. 
