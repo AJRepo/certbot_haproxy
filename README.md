@@ -4,7 +4,7 @@ Scripts to handle certbot renewals automatically on HAProxy with letsencrypt hoo
 
 Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS. 
 
-# Quickstart 
+# Quick Start 
 
 * Install Haproxy
 
@@ -12,22 +12,56 @@ Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS.
 
 * (optional) install mailutils so it can notify you of errors/success. 
 
-* Run Certbot to get your certificates. Let's say for this quickstart it is foo.example.com
+* Get HAProxy and This Script to agree on where all certificates will be stored. 
 
-* Tell HAProxy all certificates are in /etc/haproxy/crts by adding this to your SSL frontend
+  * To tell HAProxy to store in `/etc/haproxy/crts` then add the following to your HAProxy config SSL frontend
 ```
     bind *:443 ssl crt /etc/haproxy/crts/
 ```
-or change the variable HAPROXY_CRT_DIR in the script 50_haproxy_deploy.sh .
-
+  * To tell this script the same thing  change the variable `HAPROXY_CRT_DIR` in the script `50_haproxy_deploy.sh` .
+ 
 * Make sure /etc/ssl exists which is where certbot will put a copy of the .pem files. 
 
-* Install 50_haproxy_deploy.sh to /etc/letsencrypt/renewal-hooks/deploy/
+* Copy the file `50_haproxy_deploy.sh` to the `/etc/letsencrypt/renewal-hooks/deploy/` directory
 
-* Run `./50_haproxy_deploy.sh foo.example.com` and see if it successfully detects the certbot TLS and deploys it. Alternatively run a Certbot renewal.
+* Run Certbot to get your certificates. Let's say for this quickstart it is foo.example.com. 
+If using a TXT dns challenge and you have dreamhost for your registrar, then you'd use something like this:
 
-# Details
+`sudo certbot certonly -d foo.example.com --agree-tos --manual --email YOUR_EMAIL  --preferred-challenges dns  --manual-auth-hook /path/to/dreamhost_certbot_auth_hook.sh   --manual-cleanup-hook /path/to/dreamhost_certbot_cleanup_hook.sh    --manual-public-ip-logging-ok` 
+
+If using HAProxy to answer and pass on challenges on port 8888 to certbot you'd use someing like this:
+
+`sudo certbot certonly --standalone -d  foo.example.com --non-interactive --agree-tos --email YOUR_EMAIL --debug-challenges  --http-01-port=8888 --preferred-challenges=http,tls-sni-01`
+
+
+* To test this script by itself run `./50_haproxy_deploy.sh FOO.example.com` where FOO.example.com is your domain to protect, and see if it successfully detects the certbot TLS and deploys it. 
+
+* To test this script with certbot run `certbot --dry-run renew`
+
+# Quick Details
   
+This script (and the DNS TXT addition) is based on two important parts of certbot/letsencrypt
+
+1. Anything you put into /etc/letsencrypt/renewal-hooks/deploy is called AFTER certbot
+runs a renewal and downloads a new cert. 
+
+2. Certbot stores the config you used when you first register a domain in /etc/letsencrypt/renewal/DOMAIN.conf
+For example - if we look at a wildcard domain we've setup with DNS in that file we find
+```
+# Options used in the renewal process
+[renewalparams]
+pref_challs = dns-01,
+manual_public_ip_logging_ok = True
+account = REDACTED
+authenticator = manual
+server = REDACTED
+manual_auth_hook = /path/to/dreamhost_certbot_auth_hook.sh
+manual_cleanup_hook = /path/to/dreamhost_certbot_cleanup_hook.sh
+```
+
+# Extended Details
+
+
 50_haproxy_deploy.sh is called automatically on successful creation/renewal of a
 certificate (e.g. `certbot renew`) if put in /etc/letsencrypt/renewal-hooks/deploy/
 
@@ -58,7 +92,7 @@ as
 ```
 
 This takes advantage of HAProxy's ability to use a config dir for the crt directive(s)
-so that adding new (sub)domains can be done without re-editing the haproxy.cfg file.   
+so that adding new (sub)domains can be done without re-editing the haproxy.cfg file.
 
 
 This script will restart HAProxy if the haproxy.cfg file passes a haproxy config file
