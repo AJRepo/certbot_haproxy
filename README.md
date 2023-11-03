@@ -48,8 +48,9 @@ This script (and the DNS TXT addition) is based on two important parts of certbo
 1. Anything you put into /etc/letsencrypt/renewal-hooks/deploy is called AFTER certbot
 runs a renewal and downloads a new cert. 
 
-2. Certbot stores the config you used when you first register a domain in /etc/letsencrypt/renewal/DOMAIN.conf
-For example - if we look at a wildcard domain we've setup with DNS in that file we find
+2. Certbot stores the config you used when you first register a domain in /etc/letsencrypt/renewal/DOMAIN.conf .
+For example: If we look at a wildcard domain *.example.com we've setup with dreamhost DNS (as above), then
+in the file example.com.conf we find:
 ```
 # Options used in the renewal process
 [renewalparams]
