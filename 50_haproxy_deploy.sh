@@ -129,10 +129,14 @@ sleep 5
 echo "Sleep 5 seconds over"
 
 
+#If we've called this from script, then THIS_TLS_COMMANDLINE would not be blank. 
+# If called as certbot hook THIS_TLSNAME_COMMANDLINE is blank
+# and we get the DNS name from the certbot variables and parse cert.pem
 if [[ $THIS_TLSNAME_COMMANDLINE == "" ]]; then
 	TLSNAME_RAW=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text)
 	# command substitution — $() — strips trailing newlines from output in cron vs commandline
 	TLSNAME_ATTEMPT=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep DNS | awk -F: '{print $2}')
+	TLSNAME_UNTIL=$(openssl x509 -in "$RENEWED_LINEAGE/cert.pem" -noout -text | grep "Not After" | awk -F ' : ' '{print $2}')
 	TLSNAME=$(echo "$TLSNAME_RAW" | grep DNS | awk -F: '{print $2}')
 else
 	#TLSNAME=$($CERTBOT certificates -d "$THIS_TLSNAME_COMMANDLINE" | grep "Domains" | awk -F : '{print $2}' | sed -e /\ /s///)
@@ -199,6 +203,7 @@ Deploy Log:" > "$MESSAGE_FILE"
 #Append to File for outboud mail report
 echo "
 TLSNAME_ATTEMPT=$TLSNAME_ATTEMPT
+TLSNAME_UNTIL=$TLSNAME_UNTIL
 
 Some variables:
 LINEAGE=$RENEWED_LINEAGE
@@ -251,6 +256,9 @@ fi
 THIS_CLEAN_DOMAIN=${TLSNAME/\*./""}
 echo "THIS_CLEAN_DOMAIN=$THIS_CLEAN_DOMAIN" >> "$MESSAGE_FILE"
 
+
+#Pepare to concatentate the .crt files into a .pem file for HAProxy
+#Step 1: Plan the name of the .pem file in case it's a wildcard certificate
 TOP=$(echo "$TLSNAME" | awk -F. '{print $1}')
 if [[ "$TOP" == '*' ]]; then
 	WILDCARD=1
@@ -280,7 +288,7 @@ if [[ $TLSNAME == "" ]]; then
 	exit 1
 fi
 
-#Make a backup
+#Step 2 of .pem file creation. Make a backup of the old .pem file used by HAProxy
 if mkdir -p "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
  #shellcheck disable=SC2140
 	cp "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/"*.pem "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
@@ -290,6 +298,7 @@ else
 	exit 1;
 fi
 
+#Step 3 of .pem file creation. Concatenate the files into the .pem file
 # TODO: move to tee to allow for being called from sudo
 if [[ $WILDCARD == 0 ]]; then
 	cat "$CRT_PATH" "$KEY_PATH" > "$PEM_FILE"
