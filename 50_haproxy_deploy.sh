@@ -4,11 +4,11 @@
 # email notification, creates a .pem file for HaProxy and restarts
 # HaProxy if HaProxy config file checks are ok.
 
-# Script creates PEM files and creates backups in 
+# Script creates PEM files and creates backups in
 #   /etc/ssl/$TLSNAME/$TLSNAME.pem
-# If there's a directory $HAPROXY_CRT_DIR (e.g. /etc/haproxy/crts) then 
-#   the script creates a softline to the PEM file created. This takes 
-#   advantage of haproxy's ability to use a config dir for the crt directive.  
+# If there's a directory $HAPROXY_CRT_DIR (e.g. /etc/haproxy/crts) then
+#   the script creates a softline to the PEM file created. This takes
+#   advantage of haproxy's ability to use a config dir for the crt directive.
 #
 # Note: certbot will pass environment variables to SOME hooks but
 #  not to ALL hooks: https://github.com/certbot/certbot/issues/6722
@@ -20,7 +20,7 @@
 #    CERTBOT_ALL_DOMAINS: A comma-separated list of all domains challenged for the current certificate
 #  Confirmed DEPLOY Hook Variables
 #    RENEWED_LINEAGE
-#    RENEWED_DOMAINS (note: could be wildcard. E.g. *.domainname ) 
+#    RENEWED_DOMAINS (note: could be wildcard. E.g. *.domainname )
 #  Varables that are NOT passed to deploy hooks
 #    CERTBOT_CERT_PATH
 #    CERTBOT_KEY_PATH
@@ -29,8 +29,13 @@
 
 
 #Warning: hostname -A adds a space to the end of returned value(s)
+EXIT_VAL=0
 FQDN=$(hostname -A | sed -e /\ /s///g)
 HOST_DOMAIN=$(dnsdomainname | sed -e /\ /s///g)
+if [[ $HOST_DOMAIN == "" ]]; then
+	echo "Error: dnsdomainname not set. Continuing but emails will not work"
+	EXIT_VAL=1
+fi
 FROM="HaProxy@$FQDN"
 #EMAIL_TO="postmaster@$HOST_DOMAIN"
 EMAIL_TO="certbot@$HOST_DOMAIN"
@@ -54,9 +59,9 @@ MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 # function: is_certbot_running()
 # If certbot is running, return 1, else return 0
 function is_certbot_running() {
-	#Certbot stops if it finds a lock file in one of a few places. 
-  local this_this_script=""
-  this_this_script=$(basename "$THIS_SCRIPT")
+	#Certbot stops if it finds a lock file in one of a few places.
+	local this_this_script=""
+	this_this_script=$(basename "$THIS_SCRIPT")
 	if ps auxwwww | sed -e /grep/d | sed -e /"$this_this_script"/d | grep certbot > /dev/null ; then
 		echo 'true'
 	else
@@ -65,9 +70,9 @@ function is_certbot_running() {
 }
 
 function sleep_if_certbot_is_running() {
-	#Certbot stops if it finds a lock file in one of a few places. 
-  local this_this_script=""
-  this_this_script=$(basename "$THIS_SCRIPT")
+	#Certbot stops if it finds a lock file in one of a few places.
+	local this_this_script=""
+	this_this_script=$(basename "$THIS_SCRIPT")
 	if ps auxwwww | sed -e /grep/d | sed -e /"$this_this_script"/d | grep certbot > /dev/null ; then
 		echo "Certbot Running, sleeping for 5 seconds"
 		if [ -w "$MESSAGE_FILE" ]; then
@@ -90,15 +95,15 @@ function get_pem_file() {
 		return 1
 	fi
 	#$RENEWED_LINEAGE is set only if called from certbot deploy
-  if [[ $(is_certbot_running) == 'true' ]]; then
+	if [[ $(is_certbot_running) == 'true' ]]; then
 	  #sleep_if_certbot_is_running
 		echo "certbot running: falling back to looking at $RENEWED_LINEAGE/$this_filename"
 		if [ -r "$RENEWED_LINEAGE/$this_filename" ]; then
 			_ret_val="$RENEWED_LINEAGE/$this_filename"
 		fi
-  else 
+	else
 	  _ret_val=$($CERTBOT certificates -d "$this_tlsname" | grep "$this_filename" | awk -F: '{print $2}' | sed -e /\ /s///)
-  fi
+	fi
 
 	#echo "DEBUG: RET_VAL = $_ret_val"
 	if [[ $_ret_val == "" ]]; then
@@ -109,11 +114,11 @@ function get_pem_file() {
 }
 
 ####### working dirs #################################
-# To try to keep lockfile collisions from happening 
-if [ ! -d $CERTBOT_TMP_LOGDIR ]; then 
+# To try to keep lockfile collisions from happening
+if [ ! -d $CERTBOT_TMP_LOGDIR ]; then
 	mkdir $CERTBOT_TMP_LOGDIR
 fi
-if [ ! -d $CERTBOT_TMP_WORKDIR ]; then 
+if [ ! -d $CERTBOT_TMP_WORKDIR ]; then
 	mkdir $CERTBOT_TMP_WORKDIR
 fi
 ######################################################
@@ -124,12 +129,12 @@ if [[ $THIS_TLSNAME_COMMANDLINE == "" && "$RENEWED_LINEAGE" == "" ]]; then
 	exit 1
 fi
 
-#DEBUG: sleep for certbot lock file? 
+#DEBUG: sleep for certbot lock file?
 sleep 5
 echo "Sleep 5 seconds over"
 
 
-#If we've called this from script, then THIS_TLS_COMMANDLINE would not be blank. 
+#If we've called this from script, then THIS_TLS_COMMANDLINE would not be blank.
 # If called as certbot hook THIS_TLSNAME_COMMANDLINE is blank
 # and we get the DNS name from the certbot variables and parse cert.pem
 if [[ $THIS_TLSNAME_COMMANDLINE == "" ]]; then
@@ -322,7 +327,7 @@ if [[ $? != 0 ]]; then
 fi
 
 # Reload HAProxy
-if haproxy -c -f /etc/haproxy/haproxy.cfg; then 
+if haproxy -c -f /etc/haproxy/haproxy.cfg; then
 	service haproxy reload
 	echo "HAProxy reloaded" >> "$MESSAGE_FILE"
 else
@@ -335,6 +340,8 @@ fi
 ########Notify about DEPLOY HOOK being called
 $MAIL -s "Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
 #####################################
+
+exit $EXIT_VAL
 
 #Note: Must use tabs instead of spaces for heredoc (<<-) to work
 # vim: tabstop=2 shiftwidth=2 noexpandtab
