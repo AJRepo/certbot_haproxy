@@ -6,19 +6,30 @@ Supports wildcard domains. Additional scripts for using dreamhost wildcard DNS.
 
 # Quick Start 
 
+* (optional) Install mailutils for mail notifications
+```console
+sudo apt install mailutils`
+```
+
+* Install dig and uuid-runtime
+
+```console
+sudo apt install bind9-dnsutils
+sudo apt install uuid-runtime
+```
+
 * Install Haproxy
 
 * Install Certbot/Letsencrypt
 
-* (optional) install mailutils so it can notify you of errors/success. 
 
 * Get HAProxy and This Script to agree on where all certificates will be stored. 
 
-  * To tell HAProxy to store in `/etc/haproxy/crts` then add the following to your HAProxy config SSL frontend
+  * Configure HAProxy to store in `/etc/haproxy/crts` then add the following to your HAProxy config SSL frontend
 
         bind *:443 ssl crt /etc/haproxy/crts/
 
-   * To tell this script the same thing  change the variable `HAPROXY_CRT_DIR` in the script `50_haproxy_deploy.sh` .
+   * To configure this script the same thing, change the variable `HAPROXY_CRT_DIR` in the script `50_haproxy_deploy.sh` .
  
 * Make sure /etc/ssl exists which is where certbot will put a copy of the .pem files. 
 
