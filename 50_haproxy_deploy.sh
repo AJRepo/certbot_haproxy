@@ -56,8 +56,9 @@ MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 ###### tests ###############################################
 MAILUTIL="$(dpkg -S "$(readlink -f "$(which mail)")")"
 if [[ $MAILUTIL == "bsd-mailx: /usr/bin/bsd-mailx" ]]; then
-	echo "Error: This program setup for mail.mailutils not bsd-mailx"
-	(echo "Error: Needs mailutils" ; cat /tmp/haproxy_deploy.96345bbd-e46e-47cb-8d35-ce4e4b9dff24.txt ) | mail -s "Fail: haproxy error" "$EMAIL_TO"
+	echo "Error: This program is written for mail.mailutils not bsd-mailx"
+	#mail the Error using mailx. Todo: change mail format based on mailx vs mailutils
+	(echo "Error: Needs mailutils" ; cat "$MESSAGE_FILE") | mail -s "Fail: haproxy error" "$EMAIL_TO"
 	exit 1
 fi
 
