@@ -366,7 +366,7 @@ else
 fi
 
 ########Notify about DEPLOY HOOK being called
-MAIL -s "Info: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+$MAIL -s "Info: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
 mail_log_file "$MESSAGE_FILE" "Info: $SERVER_SUBJECT"
 #####################################
 
