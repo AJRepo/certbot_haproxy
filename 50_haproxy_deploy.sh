@@ -27,7 +27,6 @@
 #    CERTBOT_ALL_DOMAINS
 #    CERTBOT_DOMAIN
 
-
 #Warning: hostname -A adds a space to the end of returned value(s)
 EXIT_VAL=0
 FQDN=$(hostname -A | sed -e /\ /s///g)
@@ -54,6 +53,14 @@ MY_GLOBAL_IP=$(dig @ns1-1.akamaitech.net ANY whoami.akamai.net +short)
 
 MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 
+###### tests ###############################################
+MAILUTIL="$(dpkg -S "$(readlink -f "$(which mail)")")"
+if [[ $MAILUTIL == "bsd-mailx: /usr/bin/bsd-mailx" ]]; then
+	echo "Error: This program setup for mail.mailutils not bsd-mailx"
+	(echo "Error: Needs mailutils" ; cat /tmp/haproxy_deploy.96345bbd-e46e-47cb-8d35-ce4e4b9dff24.txt ) | mail -s "Fail: haproxy error" "$EMAIL_TO"
+	exit 1
+fi
+
 ###### functions ###########################################
 
 # function: is_certbot_running()
@@ -69,20 +76,20 @@ function is_certbot_running() {
 	fi
 }
 
-function sleep_if_certbot_is_running() {
-	#Certbot stops if it finds a lock file in one of a few places.
-	local this_this_script=""
-	this_this_script=$(basename "$THIS_SCRIPT")
-	if ps auxwwww | sed -e /grep/d | sed -e /"$this_this_script"/d | grep certbot > /dev/null ; then
-		echo "Certbot Running, sleeping for 5 seconds"
-		if [ -w "$MESSAGE_FILE" ]; then
-			echo "Certbot Running, sleeping for 5 seconds" >> "$MESSAGE_FILE"
-		fi
-		sleep 5
-	else
-		echo "Continuing"
-	fi
-}
+#function sleep_if_certbot_is_running() {
+#	#Certbot stops if it finds a lock file in one of a few places.
+#	local this_this_script=""
+#	this_this_script=$(basename "$THIS_SCRIPT")
+#	if ps auxwwww | sed -e /grep/d | sed -e /"$this_this_script"/d | grep certbot > /dev/null ; then
+#		echo "Certbot Running, sleeping for 5 seconds"
+#		if [ -w "$MESSAGE_FILE" ]; then
+#			echo "Certbot Running, sleeping for 5 seconds" >> "$MESSAGE_FILE"
+#		fi
+#		sleep 5
+#	else
+#		echo "Continuing"
+#	fi
+#}
 
 function get_pem_file() {
 	local this_tlsname=$1
