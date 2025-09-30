@@ -49,18 +49,20 @@ CERTBOT_TMP_WORKDIR="/tmp/cb_deploy_workdir"
 CERTBOT_TMP_LOGDIR="/tmp/cb_deploy_logdir"
 CERTBOT="/usr/bin/certbot --work-dir $CERTBOT_TMP_WORKDIR --logs-dir $CERTBOT_TMP_LOGDIR "
 
+
 MY_GLOBAL_IP=$(dig @ns1-1.akamaitech.net ANY whoami.akamai.net +short)
+SERVER_SUBJECT="Letsencrypt Deploy Hook: $TLSNAME on $FQDN at $MY_GLOBAL_IP"
 
 MESSAGE_FILE="/tmp/haproxy_deploy.$(uuidgen).txt"
 
-###### tests ###############################################
+###### bsd-mailx vs mailutils
 MAILUTIL="$(dpkg -S "$(readlink -f "$(which mail)")")"
-if [[ $MAILUTIL == "bsd-mailx: /usr/bin/bsd-mailx" ]]; then
-	echo "Error: This program is written for mail.mailutils not bsd-mailx"
-	#mail the Error using mailx. Todo: change mail format based on mailx vs mailutils
-	(echo "Error: Needs mailutils" ; cat "$MESSAGE_FILE") | mail -s "Fail: haproxy error" "$EMAIL_TO"
-	exit 1
-fi
+#if [[ $MAILUTIL == "bsd-mailx: /usr/bin/bsd-mailx" ]]; then
+#	echo "Error: This program is written for mail.mailutils not bsd-mailx"
+#	#mail the Error using mailx. Todo: change mail format based on mailx vs mailutils
+#	(echo "Error: Needs mailutils" ; cat "$MESSAGE_FILE") | mail -s "Fail: haproxy error" "$EMAIL_TO"
+#	exit 1
+#fi
 
 ###### functions ###########################################
 
@@ -91,6 +93,17 @@ function is_certbot_running() {
 #		echo "Continuing"
 #	fi
 #}
+
+function mail_log_file() {
+	local this_logfile=$1
+	local this_subject=$2
+	if [[ $MAILUTIL == "bsd-mailx: /usr/bin/bsd-mailx" ]]; then
+		$MAIL -s "$this_subject" "$EMAIL_TO" < "$this_logfile"
+	else
+		$MAIL -s "$this_subject" -t "$EMAIL_TO" < "$this_logfile"
+	fi
+	return 0
+}
 
 function get_pem_file() {
 	local this_tlsname=$1
@@ -160,7 +173,7 @@ fi
 
 #Setup File for outboud mail report
 echo "To: <$EMAIL_TO>
-Subject: Letsencrypt Renewal of $TLSNAME on $FQDN at $MY_GLOBAL_IP
+Subject: $SERVER_SUBJECT
 From: <$FROM>
 
 The Letsencrypt Certificate(s) $RENEWED_DOMAINS has(have) been renewed and downloaded
@@ -234,14 +247,16 @@ echo "TLSNAME=$TLSNAME" >> "$MESSAGE_FILE"
 if [[ "$TLSNAME" == "" ]]; then
 	echo "Error: TLSNAME is blank. Exiting."
 	echo "Error: TLSNAME is blank. Exiting." >> "$MESSAGE_FILE"
-	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	$MAIL -s "Error: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	mail_log_file "$MESSAGE_FILE" "Error: $SERVER_SUBJECT"
 	exit 1
 fi
 
 if [[ ! $($CERTBOT --version) ]]; then
 	echo "Error: Certbot command not found. Exiting"
 	echo "Error: Certbot command not found. Exiting" >> "$MESSAGE_FILE"
-	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	$MAIL -s "Error: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	mail_log_file "$MESSAGE_FILE" "Error: $SERVER_SUBJECT"
 	exit 1
 fi
 
@@ -258,7 +273,8 @@ if [[ $CRT_PATH == "" || $KEY_PATH == "" ]]; then
 	echo "CRT=$CRT_PATH and KEY=$KEY_PATH"
 	echo "Error: CRT or KEY path is blank. Exiting." >> "$MESSAGE_FILE"
 	echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> "$MESSAGE_FILE"
-	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	$MAIL -s "Error: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	mail_log_file "$MESSAGE_FILE" "Error: $SERVER_SUBJECT"
 	exit 1
 else
 	echo "CRT=$CRT_PATH and KEY=$KEY_PATH" >> "$MESSAGE_FILE"
@@ -297,7 +313,8 @@ fi
 if [[ $TLSNAME == "" ]]; then
 	echo "Error: Domain not found in letsencrypt/live/.... Exiting."
 	echo "Error: Domain not found in letsencrypt/live/.... Exiting." >> "$MESSAGE_FILE"
-	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	$MAIL -s "Error: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	mail_log_file "$MESSAGE_FILE" "Error: $SERVER_SUBJECT"
 	exit 1
 fi
 
@@ -307,7 +324,8 @@ if mkdir -p "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/backup.$DATETIME"; then
 	cp "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN/"*.pem "/$PEM_ROOT_DIR/$THIS_CLEAN_DOMAIN"/backup."$DATETIME"/
 else
 	echo "Not continuing because backup not made" >> "$MESSAGE_FILE"
-	$MAIL -s "Error: Letsencrypt Deploy Hook: can't do backup $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	$MAIL -s "Error Can't do backup: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	mail_log_file "$MESSAGE_FILE" "Error Can't do backup: $SERVER_SUBJECT"
 	exit 1;
 fi
 
@@ -330,7 +348,8 @@ fi
 if [[ $? != 0 ]]; then
 	echo "unable to copy pem files to $TLSNAME dir"
 	echo "unable to copy pem files to $TLSNAME dir" >> "$MESSAGE_FILE"
-	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	$MAIL -s "Error: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	mail_log_file "$MESSAGE_FILE" "Error: $SERVER_SUBJECT"
 	exit 1
 fi
 
@@ -341,12 +360,14 @@ if haproxy -c -f /etc/haproxy/haproxy.cfg; then
 else
 	echo "ERROR: check of haproxy config failed. Not restarting."
 	echo "ERROR: check of haproxy config failed. Not restarting." >> "$MESSAGE_FILE"
-	$MAIL -s "Error: Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	$MAIL -s "Error: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+	mail_log_file "$MESSAGE_FILE" "Error: $SERVER_SUBJECT"
 	exit 1;
 fi
 
 ########Notify about DEPLOY HOOK being called
-$MAIL -s "Letsencrypt Deploy Hook: $TLSNAME at $MY_GLOBAL_IP" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+MAIL -s "Info: $SERVER_SUBJECT" -t "$EMAIL_TO" < "$MESSAGE_FILE"
+mail_log_file "$MESSAGE_FILE" "Info: $SERVER_SUBJECT"
 #####################################
 
 exit $EXIT_VAL
