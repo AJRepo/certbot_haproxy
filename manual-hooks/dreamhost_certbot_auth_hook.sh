@@ -1,4 +1,8 @@
 #!/bin/bash
+# 1. Put this script in /etc/letsencrypt/manual-hooks/
+# 2. When you run certbot on a domain for the first time call it with 
+#    --manual --manual-auth-hook /etc/letsencrypt/manual-hooks/SCRIPTNAME.sh
+# 3. When certbot renews it will call with that same argument as saved in /etc/letsencrypt/renewal/$CERTBOT_DOMAIN.conf
 
 API_KEY=YOUR_API_KEY_HERE
 API_URL="https://api.dreamhost.com/"
