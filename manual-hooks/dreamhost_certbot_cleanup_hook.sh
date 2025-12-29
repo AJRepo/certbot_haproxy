@@ -10,6 +10,7 @@ API_URL="https://api.dreamhost.com/"
 #DOMAIN=$(expr match "$CERTBOT_DOMAIN" '.*\.\(.*\..*\)')
 DOMAIN=$(echo "$CERTBOT_DOMAIN" | awk -F. '{print $(NF-1)"."$NF}')
 
+#UUD is for unique_id in the API. If you send the same command twice with the same UUID, only one will be executed
 UUID=$(uuidgen)
 recordName="_acme-challenge.${CERTBOT_DOMAIN}"
 recordValue="${CERTBOT_VALIDATION}"
